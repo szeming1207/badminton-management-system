@@ -8,7 +8,7 @@ import AnalyticsSection from './components/AnalyticsSection';
 import SmartAdvisor from './components/SmartAdvisor';
 import LoginPage from './components/LoginPage';
 import LocationManager from './components/LocationManager';
-import { firebaseService } from './services/firebase';
+import { mongodbService } from './services/mongodb';
 
 const STORAGE_KEY = 'badminton_hub_sessions';
 const LOCATIONS_KEY = 'badminton_hub_locations';
@@ -28,14 +28,11 @@ const App: React.FC = () => {
   const [isOnline, setIsOnline] = useState(false);
   const [showConfigGuide, setShowConfigGuide] = useState(false);
 
-  // Firebase Config Form State
-  const [fbConfig, setFbConfig] = useState({
-    apiKey: '',
-    projectId: '',
+  // MongoDB Config Form State
+  const [mgConfig, setMgConfig] = useState({
     appId: '',
-    authDomain: '',
-    storageBucket: '',
-    messagingSenderId: ''
+    dbName: 'badminton',
+    dataSource: 'mongodb-atlas'
   });
 
   const isAdmin = userRole === 'admin';
@@ -49,26 +46,25 @@ const App: React.FC = () => {
     if (savedSessions) try { setSessions(JSON.parse(savedSessions)); } catch (e) {}
     if (savedLocations) try { setLocations(JSON.parse(savedLocations)); } catch (e) {}
 
-    // Load existing config into form
-    const savedFbConfig = localStorage.getItem('sbg_firebase_config');
-    if (savedFbConfig) {
-      try { setFbConfig(JSON.parse(savedFbConfig)); } catch (e) {}
+    const savedMgConfig = localStorage.getItem('sbg_mongodb_config');
+    if (savedMgConfig) {
+      try { setMgConfig(JSON.parse(savedMgConfig)); } catch (e) {}
     }
 
-    if (!firebaseService.isConfigured()) {
+    if (!mongodbService.isConfigured()) {
       setIsLoading(false);
       setIsOnline(false);
       return;
     }
 
-    const unsubscribeSessions = firebaseService.subscribeSessions((data) => {
+    const unsubscribeSessions = mongodbService.subscribeSessions((data) => {
       setSessions(data);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
       setIsOnline(true);
       setIsLoading(false);
     });
 
-    const unsubscribeLocations = firebaseService.subscribeLocations((data) => {
+    const unsubscribeLocations = mongodbService.subscribeLocations((data) => {
       if (data.length > 0) {
         setLocations(data);
         localStorage.setItem(LOCATIONS_KEY, JSON.stringify(data));
@@ -91,28 +87,28 @@ const App: React.FC = () => {
     localStorage.removeItem(AUTH_KEY);
   };
 
-  const handleSaveFirebaseConfig = (e: React.FormEvent) => {
+  const handleSaveConfig = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fbConfig.apiKey || !fbConfig.projectId) {
-      alert("请至少填写 API Key 和 Project ID");
+    if (!mgConfig.appId) {
+      alert("请输入 Atlas App ID");
       return;
     }
-    firebaseService.saveConfig(fbConfig);
+    mongodbService.saveConfig(mgConfig);
   };
 
-  const handleClearFirebaseConfig = () => {
+  const handleClearConfig = () => {
     if (window.confirm("确定要清除配置并切换回本地模式吗？")) {
-      firebaseService.clearConfig();
+      mongodbService.clearConfig();
     }
   };
 
   const updateSession = async (id: string, updated: Partial<Session>) => {
-    if (firebaseService.isConfigured()) {
+    if (mongodbService.isConfigured()) {
       try {
         setIsSyncing(true);
-        await firebaseService.updateSession(id, updated);
+        await mongodbService.updateSession(id, updated);
       } catch (err) {
-        console.error("Firebase Update Error:", err);
+        console.error("MongoDB Update Error:", err);
       } finally {
         setIsSyncing(false);
       }
@@ -130,10 +126,10 @@ const App: React.FC = () => {
       participants: [],
     };
     setIsModalOpen(false);
-    if (firebaseService.isConfigured()) {
+    if (mongodbService.isConfigured()) {
       try {
         setIsSyncing(true);
-        await firebaseService.addSession(newSession);
+        await mongodbService.addSession(newSession);
       } catch (err) { console.error(err); } finally { setIsSyncing(false); }
     } else {
       const updated = [newSession, ...sessions];
@@ -144,10 +140,10 @@ const App: React.FC = () => {
 
   const deleteSession = async (id: string) => {
     if (isAdmin && window.confirm('确定要删除吗？')) {
-      if (firebaseService.isConfigured()) {
+      if (mongodbService.isConfigured()) {
         try {
           setIsSyncing(true);
-          await firebaseService.deleteSession(id);
+          await mongodbService.deleteSession(id);
         } catch (err) { console.error(err); } finally { setIsSyncing(false); }
       } else {
         const updated = sessions.filter(s => s.id !== id);
@@ -158,10 +154,10 @@ const App: React.FC = () => {
   };
 
   const saveLocations = async (newLocs: LocationConfig[]) => {
-    if (firebaseService.isConfigured()) {
+    if (mongodbService.isConfigured()) {
       try {
         setIsSyncing(true);
-        await firebaseService.saveLocations(newLocs);
+        await mongodbService.saveLocations(newLocs);
       } catch (err) { console.error(err); } finally { setIsSyncing(false); }
     } else {
       setLocations(newLocs);
@@ -204,7 +200,7 @@ const App: React.FC = () => {
               onClick={() => setShowConfigGuide(!showConfigGuide)}
             >
               {isSyncing ? <Loader2 size={12} className="animate-spin" /> : isOnline ? <Cloud size={14} /> : <CloudOff size={14} />}
-              <span style={{ fontSize: '0.7rem' }} className="fw-black">{isOnline ? '云端已同步' : '本地模式 (点击配置)'}</span>
+              <span style={{ fontSize: '0.7rem' }} className="fw-black">{isOnline ? 'MongoDB 已连接' : '本地模式 (点击配置)'}</span>
             </button>
           </div>
           
@@ -231,86 +227,60 @@ const App: React.FC = () => {
             <div className="card-header bg-dark text-white p-4 d-flex justify-content-between align-items-center">
               <div className="d-flex align-items-center gap-2">
                 <Database size={20} className="text-success" />
-                <h6 className="fw-black mb-0 text-uppercase tracking-wider">Firebase 连接中心</h6>
+                <h6 className="fw-black mb-0 text-uppercase tracking-wider">MongoDB Atlas 连接中心</h6>
               </div>
               <button className="btn-close btn-close-white" onClick={() => setShowConfigGuide(false)}></button>
             </div>
             <div className="card-body p-4 bg-white">
-              <form onSubmit={handleSaveFirebaseConfig}>
+              <form onSubmit={handleSaveConfig}>
                 <div className="row g-3">
                   <div className="col-md-6">
-                    <p className="small text-muted mb-3 fw-bold">请从 Firebase 控制台复制以下信息：</p>
+                    <p className="small text-muted mb-3 fw-bold">请从 Atlas App Services 复制 App ID：</p>
                     <div className="vstack gap-2">
-                      <div>
-                        <label className="x-small fw-black text-muted text-uppercase mb-1" style={{ fontSize: '0.65rem' }}>API Key</label>
-                        <input 
-                          type="password" 
-                          className="form-control form-control-sm" 
-                          placeholder="AIzaSy..." 
-                          value={fbConfig.apiKey}
-                          onChange={e => setFbConfig({...fbConfig, apiKey: e.target.value})}
-                        />
-                      </div>
-                      <div>
-                        <label className="x-small fw-black text-muted text-uppercase mb-1" style={{ fontSize: '0.65rem' }}>Project ID</label>
-                        <input 
-                          type="text" 
-                          className="form-control form-control-sm" 
-                          placeholder="my-project-id" 
-                          value={fbConfig.projectId}
-                          onChange={e => setFbConfig({...fbConfig, projectId: e.target.value})}
-                        />
-                      </div>
                       <div>
                         <label className="x-small fw-black text-muted text-uppercase mb-1" style={{ fontSize: '0.65rem' }}>App ID</label>
                         <input 
                           type="text" 
                           className="form-control form-control-sm" 
-                          placeholder="1:12345678:web:..." 
-                          value={fbConfig.appId}
-                          onChange={e => setFbConfig({...fbConfig, appId: e.target.value})}
+                          placeholder="application-0-xxxx" 
+                          value={mgConfig.appId}
+                          onChange={e => setMgConfig({...mgConfig, appId: e.target.value})}
+                        />
+                      </div>
+                      <div>
+                        <label className="x-small fw-black text-muted text-uppercase mb-1" style={{ fontSize: '0.65rem' }}>数据库名称</label>
+                        <input 
+                          type="text" 
+                          className="form-control form-control-sm" 
+                          value={mgConfig.dbName}
+                          onChange={e => setMgConfig({...mgConfig, dbName: e.target.value})}
                         />
                       </div>
                     </div>
                   </div>
                   <div className="col-md-6 border-start border-light ps-md-4">
-                    <p className="small text-muted mb-3 fw-bold">可选配置：</p>
-                    <div className="vstack gap-2">
-                      <div>
-                        <label className="x-small fw-black text-muted text-uppercase mb-1" style={{ fontSize: '0.65rem' }}>Auth Domain</label>
-                        <input 
-                          type="text" 
-                          className="form-control form-control-sm" 
-                          value={fbConfig.authDomain}
-                          onChange={e => setFbConfig({...fbConfig, authDomain: e.target.value})}
-                        />
-                      </div>
-                      <div>
-                        <label className="x-small fw-black text-muted text-uppercase mb-1" style={{ fontSize: '0.65rem' }}>Storage Bucket</label>
-                        <input 
-                          type="text" 
-                          className="form-control form-control-sm" 
-                          value={fbConfig.storageBucket}
-                          onChange={e => setFbConfig({...fbConfig, storageBucket: e.target.value})}
-                        />
-                      </div>
+                    <p className="small text-muted mb-3 fw-bold">集群设置：</p>
+                    <div>
+                      <label className="x-small fw-black text-muted text-uppercase mb-1" style={{ fontSize: '0.65rem' }}>Data Source (服务名)</label>
+                      <input 
+                        type="text" 
+                        className="form-control form-control-sm" 
+                        value={mgConfig.dataSource}
+                        onChange={e => setMgConfig({...mgConfig, dataSource: e.target.value})}
+                      />
                     </div>
                     
                     <div className="mt-4 d-flex gap-2">
                       <button type="submit" className="btn btn-success btn-sm flex-grow-1 fw-black d-flex align-items-center justify-content-center gap-2">
                         <Save size={14} /> 保存并连接
                       </button>
-                      <button type="button" onClick={handleClearFirebaseConfig} className="btn btn-outline-danger btn-sm fw-black">
-                        <Trash2 size={14} /> 清除
+                      <button type="button" onClick={handleClearConfig} className="btn btn-outline-danger btn-sm fw-black">
+                        <Trash2 size={14} /> 切换本地
                       </button>
                     </div>
                   </div>
                 </div>
               </form>
-              <div className="mt-3 pt-3 border-top small text-muted">
-                <Info size={12} className="me-1" /> 
-                提示：配置将保存在您的浏览器本地。保存后网页会自动刷新。
-              </div>
             </div>
           </div>
         )}

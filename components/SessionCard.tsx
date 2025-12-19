@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Users, MapPin, X, Trash2, UserPlus, Save, Edit3, Clock, ChevronDown, ChevronUp, CheckCircle2, AlertCircle, Edit2, Check } from 'lucide-react';
+import { Users, MapPin, X, Trash2, UserPlus, Save, Edit3, Clock, ChevronDown, ChevronUp, CheckCircle2, AlertCircle, Edit2, Check, DollarSign } from 'lucide-react';
 import { Session } from '../types';
 
 interface SessionCardProps {
@@ -13,9 +13,12 @@ interface SessionCardProps {
 
 const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, frequentParticipants, onUpdate, onDelete }) => {
   const [newName, setNewName] = useState('');
-  const [isEditingShuttles, setIsEditingShuttles] = useState(false);
+  const [isEditingCosts, setIsEditingCosts] = useState(false);
   const [isEditingDetails, setIsEditingDetails] = useState(false);
+  
+  // States for cost editing
   const [tempShuttleQty, setTempShuttleQty] = useState(session.shuttleQty);
+  const [tempShuttlePrice, setTempShuttlePrice] = useState(session.shuttlePrice);
   
   // States for basic details editing
   const [editStartTime, setEditStartTime] = useState(session.time.split(' - ')[0] || '19:00');
@@ -53,9 +56,12 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, frequentPar
     setTimeout(() => setShowSuccessToast(false), 2500);
   };
 
-  const handleUpdateShuttles = () => {
-    onUpdate({ shuttleQty: tempShuttleQty });
-    setIsEditingShuttles(false);
+  const handleUpdateCosts = () => {
+    onUpdate({ 
+      shuttleQty: tempShuttleQty,
+      shuttlePrice: tempShuttlePrice 
+    });
+    setIsEditingCosts(false);
   };
 
   const handleUpdateDetails = () => {
@@ -67,11 +73,11 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, frequentPar
   };
 
   const removeParticipant = (name: string) => {
-    if (!isAdmin) {
-      alert('普通成员仅能填入名字，移除或修改请联系管理员。');
-      return;
+    // 允许普通成员删除，但增加确认步骤防止误操作
+    const confirmMsg = isAdmin ? `确定要移除 "${name}" 吗？` : `确定要取消 "${name}" 的报名吗？`;
+    if (window.confirm(confirmMsg)) {
+      onUpdate({ participants: session.participants.filter(p => p !== name) });
     }
-    onUpdate({ participants: session.participants.filter(p => p !== name) });
   };
 
   // Generate time options
@@ -186,7 +192,11 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, frequentPar
           <div className="d-flex justify-content-between align-items-center mb-1">
             <small className="text-muted fw-black text-uppercase tracking-wider" style={{ fontSize: '0.65rem' }}>总费用</small>
             {isAdmin && (
-              <button onClick={() => setIsEditingShuttles(!isEditingShuttles)} className={`btn btn-sm p-1 rounded ${isEditingShuttles ? 'btn-success bg-opacity-10' : 'text-muted'}`}>
+              <button 
+                onClick={() => setIsEditingCosts(!isEditingCosts)} 
+                className={`btn btn-sm p-1 rounded ${isEditingCosts ? 'btn-success bg-opacity-10' : 'text-muted hover-success'}`}
+                title="修改羽毛球数量及单价"
+              >
                 <Edit3 size={14} />
               </button>
             )}
@@ -194,22 +204,37 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, frequentPar
           <h4 className="fw-black mb-1">RM {totalCost.toFixed(2)}</h4>
           <div className="vstack">
             <small className="text-muted fw-bold" style={{ fontSize: '0.7rem' }}>场地: RM {session.courtFee}</small>
-            {isEditingShuttles ? (
-              <div className="d-flex gap-1 mt-1">
-                <input 
-                  type="number" 
-                  autoFocus
-                  value={tempShuttleQty} 
-                  onChange={(e) => setTempShuttleQty(parseInt(e.target.value) || 0)}
-                  className="form-control form-control-sm fw-black border-success"
-                  style={{ width: '50px' }}
-                />
-                <button onClick={handleUpdateShuttles} className="btn btn-success btn-sm px-2">
-                  <Save size={12} />
-                </button>
+            {isEditingCosts ? (
+              <div className="vstack gap-1 mt-2 p-2 bg-success bg-opacity-10 rounded-3">
+                <div className="d-flex align-items-center gap-2">
+                  <small className="fw-black text-success" style={{ fontSize: '0.6rem' }}>数量</small>
+                  <input 
+                    type="number" 
+                    value={tempShuttleQty} 
+                    onChange={(e) => setTempShuttleQty(parseInt(e.target.value) || 0)}
+                    className="form-control form-control-sm fw-black border-success py-0 px-1"
+                    style={{ height: '24px' }}
+                  />
+                </div>
+                <div className="d-flex align-items-center gap-2">
+                  <small className="fw-black text-success" style={{ fontSize: '0.6rem' }}>单价</small>
+                  <input 
+                    type="number" 
+                    value={tempShuttlePrice} 
+                    onChange={(e) => setTempShuttlePrice(parseFloat(e.target.value) || 0)}
+                    className="form-control form-control-sm fw-black border-success py-0 px-1"
+                    style={{ height: '24px' }}
+                  />
+                </div>
+                <div className="d-flex gap-1 mt-1">
+                  <button onClick={handleUpdateCosts} className="btn btn-success btn-sm w-100 py-0" style={{ fontSize: '0.7rem' }}>保存</button>
+                  <button onClick={() => setIsEditingCosts(false)} className="btn btn-light btn-sm w-100 py-0 border" style={{ fontSize: '0.7rem' }}>取消</button>
+                </div>
               </div>
             ) : (
-              <small className="text-muted fw-bold" style={{ fontSize: '0.7rem' }}>羽毛球: {session.shuttleQty} (RM {totalShuttleCost.toFixed(2)})</small>
+              <small className="text-muted fw-bold" style={{ fontSize: '0.7rem' }}>
+                羽毛球: {session.shuttleQty} x RM {session.shuttlePrice.toFixed(2)} (RM {totalShuttleCost.toFixed(2)})
+              </small>
             )}
           </div>
         </div>
@@ -261,11 +286,14 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, frequentPar
               {session.participants.map(name => (
                 <div key={name} className="participant-chip d-flex align-items-center gap-2 bg-white border rounded-pill ps-3 pe-1 py-1 shadow-sm hover-success transition-all">
                   <span className="small fw-bold">{name}</span>
-                  {isAdmin ? (
-                    <button onClick={() => removeParticipant(name)} className="btn btn-link p-1 text-muted hover-danger border-0">
-                      <X size={14} />
-                    </button>
-                  ) : <div className="p-2" />}
+                  {/* 现在允许所有成员点击删除按钮 */}
+                  <button 
+                    onClick={() => removeParticipant(name)} 
+                    className="btn btn-link p-1 text-muted hover-danger border-0"
+                    title="移除报名"
+                  >
+                    <X size={14} />
+                  </button>
                 </div>
               ))}
             </div>
@@ -307,6 +335,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, frequentPar
       <style>{`
         .participant-chip:hover { border-color: #10b981 !important; background-color: #f0fdf4 !important; }
         .hover-danger:hover { color: #ef4444 !important; }
+        .hover-success:hover { color: #10b981 !important; }
         .hover-bg-light:hover { background-color: rgba(0,0,0,0.05); }
         .fw-black { font-weight: 900 !important; }
         .btn-white { background-color: white !important; }

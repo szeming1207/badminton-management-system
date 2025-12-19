@@ -56,7 +56,6 @@
         .prose-sm ul { padding-left: 1.25rem; margin-bottom: 0; }
         .prose-sm li { margin-bottom: 0.25rem; }
 
-        /* 确保 root 容器至少占满屏幕，防止渲染前出现视觉塌陷 */
         #root {
             min-height: 100vh;
         }
@@ -71,20 +70,14 @@
     "@google/genai": "https://esm.sh/@google/genai@1.34.0",
     "lucide-react": "https://esm.sh/lucide-react@0.460.0",
     "recharts": "https://esm.sh/recharts@2.13.3",
-    "firebase/app": "https://esm.sh/firebase@11.1.0/app",
-    "firebase/firestore": "https://esm.sh/firebase@11.1.0/firestore",
-    "firebase/": "https://esm.sh/firebase@^12.7.0/"
+    "realm-web": "https://esm.sh/realm-web@2.0.0"
   }
 }
 </script>
 </head>
 <body>
     <div id="root"></div>
-    
-    <!-- Bootstrap Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- 显式引入应用入口脚本 -->
     <script type="module" src="./index.tsx"></script>
 </body>
 </html>

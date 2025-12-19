@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { Plus, Trash2, MapPin, Download, Upload, Save, MapPinned, Edit2, Check, X, Database, ShieldAlert } from 'lucide-react';
+import { Plus, Trash2, MapPin, Download, Upload, Save, MapPinned, Edit2, Check, X, Database, ShieldAlert, RotateCcw } from 'lucide-react';
 import { LocationConfig, Session } from '../types';
 
 interface LocationManagerProps {
@@ -10,7 +10,8 @@ interface LocationManagerProps {
 
 const LocationManager: React.FC<LocationManagerProps> = ({ locations, onUpdateLocations }) => {
   const [newName, setNewName] = useState('');
-  const [newFee, setNewFee] = useState(60);
+  // 修改默认添加费用为 20
+  const [newFee, setNewFee] = useState(20);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editFee, setEditFee] = useState(0);
@@ -21,7 +22,16 @@ const LocationManager: React.FC<LocationManagerProps> = ({ locations, onUpdateLo
     if (!newName.trim()) return;
     onUpdateLocations([...locations, { id: crypto.randomUUID(), name: newName.trim(), defaultCourtFee: newFee }]);
     setNewName('');
-    setNewFee(60);
+    setNewFee(20);
+  };
+
+  const handleResetDefaults = () => {
+    if (window.confirm('确定要恢复默认场地设置（SRC 和 Perfect Win）吗？这将覆盖您当前的自定义场地库。')) {
+      onUpdateLocations([
+        { id: '1', name: 'SRC', defaultCourtFee: 20 },
+        { id: '2', name: 'Perfect Win', defaultCourtFee: 30 }
+      ]);
+    }
   };
 
   const saveEditing = (id: string) => {
@@ -83,14 +93,23 @@ const LocationManager: React.FC<LocationManagerProps> = ({ locations, onUpdateLo
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
       {/* 场地管理卡片 */}
       <div className="bg-white p-6 md:p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
-        <div className="flex items-center gap-3 mb-8">
-          <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600">
-            <MapPinned className="w-6 h-6" />
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600">
+              <MapPinned className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-800">场地库管理</h2>
+              <p className="text-sm text-slate-500">管理常用球馆及其默认场费</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-xl font-bold text-slate-800">场地库管理</h2>
-            <p className="text-sm text-slate-500">管理常用球馆及其默认场费</p>
-          </div>
+          <button 
+            onClick={handleResetDefaults}
+            className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-emerald-600 transition-colors"
+          >
+            <RotateCcw className="w-4 h-4" />
+            恢复系统默认
+          </button>
         </div>
 
         <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-10 bg-slate-50 p-6 rounded-3xl border border-slate-100">

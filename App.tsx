@@ -15,7 +15,7 @@ const AUTH_KEY = 'badminton_hub_auth_role';
 
 const App: React.FC = () => {
   const [sessions, setSessions] = useState<Session[]>([]);
-  // 更新初始场地列表
+  // 初始场地列表已更新为用户要求的 SRC 和 Perfect Win
   const [locations, setLocations] = useState<LocationConfig[]>([
     { id: '1', name: 'SRC', defaultCourtFee: 20 },
     { id: '2', name: 'Perfect Win', defaultCourtFee: 30 }
@@ -32,6 +32,8 @@ const App: React.FC = () => {
     const savedRole = localStorage.getItem(AUTH_KEY) as 'admin' | 'user' | null;
     
     if (savedSessions) try { setSessions(JSON.parse(savedSessions)); } catch (e) {}
+    // 注意：如果本地存储已有数据，它会覆盖初始的 [SRC, Perfect Win]
+    // 管理员可以在“场地管理”页面手动删除旧场地或点击“恢复默认”
     if (savedLocations) try { setLocations(JSON.parse(savedLocations)); } catch (e) {}
     if (savedRole) setUserRole(savedRole);
   }, []);
@@ -117,7 +119,8 @@ const App: React.FC = () => {
             <div className="bg-emerald-500 p-2 rounded-lg">
               <Calendar className="text-white w-5 h-5" />
             </div>
-            <h1 className="text-xl font-bold text-slate-800 tracking-tight hidden sm:block">Badminton Hub</h1>
+            {/* 品牌名称统一为 SBG Badminton */}
+            <h1 className="text-xl font-bold text-slate-800 tracking-tight hidden sm:block">SBG Badminton</h1>
           </div>
           
           <div className="flex items-center gap-3">

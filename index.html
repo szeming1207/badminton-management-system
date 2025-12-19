@@ -13,20 +13,48 @@
     <meta property="og:title" content="Sibu Badminton Gang (SBG) - 预约打球">
     <meta property="og:description" content="加入我们的球局！自动计算费用，智能统计，高效管理每一场羽毛球赛。">
     
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+    
     <style>
         body {
             font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
             background-color: #f8fafc;
+            color: #334155;
         }
-        /* 针对移动端滚动条优化 */
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        .rounded-4xl { border-radius: 2rem !important; }
+        .rounded-3xl { border-radius: 1.5rem !important; }
+        .rounded-2xl { border-radius: 1rem !important; }
+        
+        .btn-success { background-color: #10b981; border-color: #10b981; }
+        .btn-success:hover { background-color: #059669; border-color: #059669; }
+        
+        .shadow-soft { box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.05); }
+        
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        
+        .nav-pills .nav-link.active {
+            background-color: #10b981;
+        }
+        .nav-pills .nav-link {
+            color: #64748b;
+            font-weight: 700;
+        }
+        
+        .modal-backdrop {
+            background-color: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(8px);
+        }
+        
+        .prose-sm ul { padding-left: 1.25rem; margin-bottom: 0; }
+        .prose-sm li { margin-bottom: 0.25rem; }
     </style>
+
 <script type="importmap">
 {
   "imports": {
@@ -35,12 +63,16 @@
     "react": "https://esm.sh/react@^19.2.3",
     "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
     "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
-    "recharts": "https://esm.sh/recharts@^3.6.0"
+    "recharts": "https://esm.sh/recharts@^3.6.0",
+    "firebase/app": "https://esm.sh/firebase@11.1.0/app",
+    "firebase/firestore": "https://esm.sh/firebase@11.1.0/firestore",
+    "firebase/": "https://esm.sh/firebase@^12.7.0/"
   }
 }
 </script>
 </head>
 <body>
     <div id="root"></div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

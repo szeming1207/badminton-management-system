@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { Users, MapPin, X, Trash2, UserPlus, Save, Edit3, Clock, ChevronDown, ChevronUp, CheckCircle2, AlertCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { Users, MapPin, X, Trash2, UserPlus, Save, Edit3, Clock, ChevronDown, ChevronUp, CheckCircle2, AlertCircle, Edit2, Check } from 'lucide-react';
 import { Session } from '../types';
 
 interface SessionCardProps {
@@ -14,7 +14,14 @@ interface SessionCardProps {
 const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, frequentParticipants, onUpdate, onDelete }) => {
   const [newName, setNewName] = useState('');
   const [isEditingShuttles, setIsEditingShuttles] = useState(false);
+  const [isEditingDetails, setIsEditingDetails] = useState(false);
   const [tempShuttleQty, setTempShuttleQty] = useState(session.shuttleQty);
+  
+  // States for basic details editing
+  const [editStartTime, setEditStartTime] = useState(session.time.split(' - ')[0] || '19:00');
+  const [editEndTime, setEditEndTime] = useState(session.time.split(' - ')[1] || '21:00');
+  const [editCourtCount, setEditCourtCount] = useState(session.courtCount);
+
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
 
@@ -42,7 +49,6 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, frequentPar
     onUpdate({ participants: [...session.participants, trimmed] });
     setNewName('');
     
-    // 显示成功提示
     setShowSuccessToast(true);
     setTimeout(() => setShowSuccessToast(false), 2500);
   };
@@ -50,6 +56,14 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, frequentPar
   const handleUpdateShuttles = () => {
     onUpdate({ shuttleQty: tempShuttleQty });
     setIsEditingShuttles(false);
+  };
+
+  const handleUpdateDetails = () => {
+    onUpdate({ 
+      time: `${editStartTime} - ${editEndTime}`,
+      courtCount: editCourtCount
+    });
+    setIsEditingDetails(false);
   };
 
   const removeParticipant = (name: string) => {
@@ -60,193 +74,244 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, frequentPar
     onUpdate({ participants: session.participants.filter(p => p !== name) });
   };
 
+  // Generate time options
+  const timeOptions = [];
+  for (let i = 8; i <= 23; i++) {
+    const hour = i.toString().padStart(2, '0');
+    timeOptions.push(`${hour}:00`, `${hour}:30`);
+  }
+
   return (
-    <div className="relative bg-white rounded-[2rem] border border-slate-200 overflow-hidden transition-all duration-300 hover:shadow-2xl hover:shadow-slate-200/50 flex flex-col h-full border-b-4 border-b-emerald-500/20">
+    <div className="card border-0 shadow-soft rounded-4xl overflow-hidden position-relative h-100" style={{ borderBottom: '4px solid rgba(16, 185, 129, 0.2)' }}>
       
-      {/* 成功报名 Toast */}
+      {/* Toast Overlay */}
       {showSuccessToast && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-300 border border-emerald-500/50">
-          <CheckCircle2 className="w-5 h-5" />
-          <span className="text-sm font-black">报名成功！成功参与 🎉</span>
+        <div className="position-absolute top-0 start-50 translate-middle-x mt-3 z-3 bg-success text-white px-4 py-2 rounded-pill shadow d-flex align-items-center gap-2">
+          <CheckCircle2 size={18} />
+          <span className="small fw-black">报名成功！ 🎉</span>
         </div>
       )}
 
       {/* Card Header */}
-      <div className="px-7 py-6 flex justify-between items-start bg-slate-50/80">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <h3 className="text-2xl font-black text-slate-800 tracking-tight">
+      <div className="card-header border-0 bg-light p-4">
+        <div className="d-flex justify-content-between align-items-start">
+          <div className="flex-grow-1">
+            <h4 className="fw-black text-dark mb-2">
               {new Date(session.date).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', weekday: 'short' })}
-            </h3>
+            </h4>
+            
+            {isEditingDetails ? (
+              <div className="vstack gap-2 mt-2">
+                <div className="d-flex align-items-center gap-2">
+                  <Clock size={14} className="text-success" />
+                  <select 
+                    value={editStartTime} 
+                    onChange={(e) => setEditStartTime(e.target.value)}
+                    className="form-select form-select-sm fw-bold rounded-2"
+                    style={{ width: '90px' }}
+                  >
+                    {timeOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                  <span className="text-muted">-</span>
+                  <select 
+                    value={editEndTime} 
+                    onChange={(e) => setEditEndTime(e.target.value)}
+                    className="form-select form-select-sm fw-bold rounded-2"
+                    style={{ width: '90px' }}
+                  >
+                    {timeOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div className="d-flex align-items-center gap-2">
+                  <MapPin size={14} className="text-danger" />
+                  <div className="input-group input-group-sm" style={{ width: '120px' }}>
+                    <input 
+                      type="number" 
+                      min="1"
+                      value={editCourtCount} 
+                      onChange={(e) => setEditCourtCount(parseInt(e.target.value) || 1)}
+                      className="form-control fw-bold"
+                    />
+                    <span className="input-group-text small px-2">场地</span>
+                  </div>
+                  <button onClick={handleUpdateDetails} className="btn btn-success btn-sm rounded-circle p-1 ms-2">
+                    <Check size={16} />
+                  </button>
+                  <button onClick={() => {
+                    setIsEditingDetails(false);
+                    setEditStartTime(session.time.split(' - ')[0]);
+                    setEditEndTime(session.time.split(' - ')[1]);
+                    setEditCourtCount(session.courtCount);
+                  }} className="btn btn-light btn-sm rounded-circle p-1 border">
+                    <X size={16} />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="d-flex flex-wrap align-items-center gap-3">
+                <span className="badge bg-success bg-opacity-10 text-success rounded-pill px-3 py-2 d-flex align-items-center gap-1 border border-success border-opacity-25">
+                  <Clock size={14} />
+                  <span className="fw-bold">{session.time}</span>
+                </span>
+                <div className="d-flex align-items-center gap-1 small fw-bold text-muted">
+                  <MapPin size={14} className="text-danger" />
+                  <span className="text-truncate" style={{ maxWidth: '120px' }}>{session.location}</span>
+                  <span className="text-muted opacity-25 mx-1">/</span>
+                  <span>{session.courtCount} 场地</span>
+                </div>
+                {isAdmin && (
+                  <button 
+                    onClick={() => setIsEditingDetails(true)} 
+                    className="btn btn-link text-success p-1 rounded-circle hover-bg-light"
+                    title="编辑时间及场地"
+                  >
+                    <Edit2 size={14} />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
-          <div className="flex flex-wrap items-center gap-4 text-slate-500 text-sm">
-            <div className="flex items-center gap-1.5 font-black text-emerald-600 bg-emerald-100/50 px-3 py-1 rounded-full border border-emerald-100">
-              <Clock className="w-4 h-4" />
-              <span>{session.time}</span>
-            </div>
-            <div className="flex items-center gap-1.5 font-bold text-slate-600">
-              <MapPin className="w-4 h-4 text-rose-500" />
-              <span className="truncate max-w-[140px]">{session.location}</span>
-              <span className="text-slate-300 mx-1">/</span>
-              <span>{session.courtCount} 场地</span>
-            </div>
-          </div>
+          
+          {isAdmin && (
+            <button onClick={onDelete} className="btn btn-link text-muted p-2 rounded-circle hover-danger">
+              <Trash2 size={20} />
+            </button>
+          )}
         </div>
-        {isAdmin && (
-          <button 
-            onClick={onDelete}
-            className="p-2.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-all"
-            title="删除活动"
-          >
-            <Trash2 className="w-5 h-5" />
-          </button>
-        )}
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 border-y border-slate-100">
-        <div className="p-6 border-r border-slate-100">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">活动总费用</p>
+      {/* Price Summary */}
+      <div className="row g-0 border-top border-bottom">
+        <div className="col-6 p-4 border-end">
+          <div className="d-flex justify-content-between align-items-center mb-1">
+            <small className="text-muted fw-black text-uppercase tracking-wider" style={{ fontSize: '0.65rem' }}>总费用</small>
             {isAdmin && (
-              <button 
-                onClick={() => setIsEditingShuttles(!isEditingShuttles)} 
-                className={`p-1.5 rounded-lg transition-colors ${isEditingShuttles ? 'bg-emerald-100 text-emerald-600 shadow-inner' : 'text-slate-400 hover:bg-slate-100'}`}
-              >
-                <Edit3 className="w-4 h-4" />
+              <button onClick={() => setIsEditingShuttles(!isEditingShuttles)} className={`btn btn-sm p-1 rounded ${isEditingShuttles ? 'btn-success bg-opacity-10' : 'text-muted'}`}>
+                <Edit3 size={14} />
               </button>
             )}
           </div>
-          <p className="text-3xl font-black text-slate-800">RM {totalCost.toFixed(2)}</p>
-          <div className="mt-2 space-y-0.5">
-            <p className="text-[11px] font-bold text-slate-400">场地: RM {session.courtFee}</p>
+          <h4 className="fw-black mb-1">RM {totalCost.toFixed(2)}</h4>
+          <div className="vstack">
+            <small className="text-muted fw-bold" style={{ fontSize: '0.7rem' }}>场地: RM {session.courtFee}</small>
             {isEditingShuttles ? (
-              <div className="flex items-center gap-2 mt-2 animate-in slide-in-from-left-2">
+              <div className="d-flex gap-1 mt-1">
                 <input 
                   type="number" 
                   autoFocus
                   value={tempShuttleQty} 
                   onChange={(e) => setTempShuttleQty(parseInt(e.target.value) || 0)}
-                  className="w-16 text-sm font-black border-2 border-emerald-500 rounded-xl px-2 py-1 outline-none"
+                  className="form-control form-control-sm fw-black border-success"
+                  style={{ width: '50px' }}
                 />
-                <button onClick={handleUpdateShuttles} className="bg-emerald-600 text-white p-2 rounded-xl active:scale-95 transition-transform shadow-lg shadow-emerald-100">
-                  <Save className="w-4 h-4" />
+                <button onClick={handleUpdateShuttles} className="btn btn-success btn-sm px-2">
+                  <Save size={12} />
                 </button>
               </div>
             ) : (
-              <p className="text-[11px] font-bold text-slate-400">羽毛球: {session.shuttleQty} 个 (RM {totalShuttleCost.toFixed(2)})</p>
+              <small className="text-muted fw-bold" style={{ fontSize: '0.7rem' }}>羽毛球: {session.shuttleQty} (RM {totalShuttleCost.toFixed(2)})</small>
             )}
           </div>
         </div>
-        <div className="p-6 bg-emerald-50/40">
-          <p className="text-[10px] text-emerald-600 font-black uppercase tracking-widest mb-2">每人分担 (AA)</p>
-          <p className="text-3xl font-black text-emerald-700">RM {costPerPerson.toFixed(2)}</p>
-          <div className="mt-2 flex items-center gap-2">
-             <div className={`inline-flex px-3 py-1 rounded-full text-[10px] font-black shadow-sm border ${isFull ? 'bg-rose-100 text-rose-600 border-rose-200' : 'bg-white text-emerald-600 border-emerald-100'}`}>
-               {participantCount} / {maxParticipants} 人参与
-             </div>
-             {isFull && <span className="text-[10px] font-bold text-rose-500">已满</span>}
+        <div className="col-6 p-4 bg-light bg-opacity-50">
+          <small className="text-success fw-black text-uppercase tracking-wider d-block mb-1" style={{ fontSize: '0.65rem' }}>每人分担 (AA)</small>
+          <h4 className="fw-black text-success mb-2">RM {costPerPerson.toFixed(2)}</h4>
+          <div className="d-flex align-items-center gap-2">
+             <span className={`badge rounded-pill fw-black py-1 px-2 border ${isFull ? 'bg-danger bg-opacity-10 text-danger border-danger border-opacity-25' : 'bg-white text-success border-success border-opacity-25'}`}>
+               {participantCount} / {maxParticipants} 人
+             </span>
+             {isFull && <small className="text-danger fw-black" style={{ fontSize: '0.65rem' }}>已满</small>}
           </div>
         </div>
       </div>
 
-      {/* Participants Area */}
-      <div className="p-7 flex flex-col flex-1 space-y-5">
-        <div className="flex items-center justify-between">
-          <h4 className="text-sm font-black text-slate-800 flex items-center gap-2">
-            <Users className="w-4 h-4 text-emerald-500" />
+      {/* Participants List */}
+      <div className="card-body p-4 d-flex flex-column gap-3">
+        <div className="d-flex justify-content-between align-items-center">
+          <h6 className="fw-black mb-0 d-flex align-items-center gap-2">
+            <Users size={18} className="text-success" />
             报名名单
-          </h4>
-          <button 
-            onClick={() => setShowQuickAdd(!showQuickAdd)}
-            className="text-[11px] text-emerald-600 font-black hover:text-emerald-700 transition-colors flex items-center gap-1.5"
-          >
-            {showQuickAdd ? <ChevronUp className="w-3.5 h-3.5"/> : <ChevronDown className="w-3.5 h-3.5"/>}
-            常用名单
+          </h6>
+          <button onClick={() => setShowQuickAdd(!showQuickAdd)} className="btn btn-link btn-sm text-success text-decoration-none fw-black p-0 d-flex align-items-center gap-1">
+            {showQuickAdd ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
+            <small>常用名单</small>
           </button>
         </div>
 
         {showQuickAdd && (
-          <div className="p-4 bg-slate-50 rounded-3xl border border-slate-200 animate-in fade-in slide-in-from-top-2 duration-200">
-            <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto pr-1 custom-scrollbar">
-              {frequentParticipants.filter(n => !session.participants.includes(n)).length > 0 ? (
-                frequentParticipants.filter(n => !session.participants.includes(n)).map(name => (
-                  <button 
-                    key={name}
-                    onClick={() => handleAddName(name)}
-                    disabled={isFull}
-                    className="text-[10px] font-bold bg-white border border-slate-200 hover:border-emerald-500 hover:text-emerald-600 px-3 py-1.5 rounded-full transition-all active:scale-90 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    + {name}
-                  </button>
-                ))
-              ) : (
-                <p className="text-[10px] text-slate-400 italic w-full text-center py-2">无更多记录</p>
-              )}
+          <div className="p-3 bg-light rounded-4 border animate-in fade-in">
+            <div className="d-flex flex-wrap gap-2 overflow-auto" style={{ maxHeight: '100px' }}>
+              {frequentParticipants.filter(n => !session.participants.includes(n)).map(name => (
+                <button 
+                  key={name}
+                  onClick={() => handleAddName(name)}
+                  disabled={isFull}
+                  className="btn btn-sm btn-white border rounded-pill px-3 py-1 fw-bold small shadow-sm"
+                >
+                  + {name}
+                </button>
+              ))}
             </div>
           </div>
         )}
 
-        {/* Scrollable Participants List */}
-        <div className="relative flex-1">
-          <div className="max-h-[180px] overflow-y-auto pr-2 custom-scrollbar flex flex-wrap gap-2.5 content-start">
-            {session.participants.length > 0 ? (
-              session.participants.map(name => (
-                <div key={name} className="group flex items-center gap-2 bg-white text-slate-700 pl-4 pr-1 py-1.5 rounded-full text-xs font-bold border border-slate-200 hover:border-emerald-400 hover:bg-emerald-50 transition-all shadow-sm">
-                  <span className="truncate max-w-[120px]">{name}</span>
-                  <button 
-                    onClick={() => removeParticipant(name)} 
-                    className={`text-slate-300 hover:text-rose-500 transition-colors p-1.5 ${!isAdmin ? 'cursor-not-allowed opacity-0' : 'group-hover:opacity-100 opacity-0'}`}
-                    disabled={!isAdmin}
-                    title={isAdmin ? "移除" : "仅管理员可移除"}
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
+        <div className="flex-grow-1 overflow-auto pe-1" style={{ minHeight: '120px', maxHeight: '200px' }}>
+          {session.participants.length > 0 ? (
+            <div className="d-flex flex-wrap gap-2 align-content-start">
+              {session.participants.map(name => (
+                <div key={name} className="participant-chip d-flex align-items-center gap-2 bg-white border rounded-pill ps-3 pe-1 py-1 shadow-sm hover-success transition-all">
+                  <span className="small fw-bold">{name}</span>
+                  {isAdmin ? (
+                    <button onClick={() => removeParticipant(name)} className="btn btn-link p-1 text-muted hover-danger border-0">
+                      <X size={14} />
+                    </button>
+                  ) : <div className="p-2" />}
                 </div>
-              ))
-            ) : (
-              <div className="w-full py-10 flex flex-col items-center justify-center border-4 border-dashed border-slate-50 rounded-[2rem]">
-                <Users className="w-10 h-10 text-slate-100 mb-2" />
-                <p className="text-[11px] text-slate-300 font-bold">暂时还没有人报名...</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Add Participant Form */}
-        <div className="pt-4 border-t border-slate-50">
-          {isFull ? (
-            <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center gap-3 text-rose-600">
-               <AlertCircle className="w-5 h-5 shrink-0" />
-               <p className="text-xs font-bold">本场次报名名额已满，下次请早点哦！</p>
+              ))}
             </div>
           ) : (
-            <form onSubmit={(e) => { e.preventDefault(); handleAddName(newName); }} className="flex gap-2">
+            <div className="h-100 d-flex flex-column align-items-center justify-content-center border border-dashed rounded-4 p-4 text-muted opacity-50">
+              <Users size={32} className="mb-2" />
+              <small className="fw-bold">暂时还没有人报名...</small>
+            </div>
+          )}
+        </div>
+
+        <div className="pt-2 border-top">
+          {isFull ? (
+            <div className="alert alert-danger bg-danger bg-opacity-10 border-0 rounded-4 d-flex align-items-center gap-2 p-3 mb-0">
+               <AlertCircle size={18} className="flex-shrink-0" />
+               <small className="fw-bold">报名名额已满，下次请早点哦！</small>
+            </div>
+          ) : (
+            <form onSubmit={(e) => { e.preventDefault(); handleAddName(newName); }} className="input-group">
               <input
                 type="text"
                 placeholder="填下名字参与..."
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                className="flex-1 bg-slate-100/50 border border-slate-200 rounded-2xl px-5 py-3 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all placeholder:text-slate-400"
+                className="form-control bg-light border-0 rounded-start-4 px-4 py-3 fw-bold"
               />
               <button 
                 type="submit"
-                className="bg-emerald-600 hover:bg-emerald-700 text-white w-14 flex items-center justify-center rounded-2xl transition-all shadow-xl shadow-emerald-100 active:scale-90 disabled:opacity-50 disabled:grayscale"
+                className="btn btn-success rounded-end-4 px-4 shadow-sm"
                 disabled={!newName.trim() || isFull}
               >
-                <UserPlus className="w-6 h-6" />
+                <UserPlus size={24} />
               </button>
             </form>
           )}
         </div>
       </div>
-
-      <style dangerouslySetInnerHTML={{ __html: `
-        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
-      `}} />
+      
+      <style>{`
+        .participant-chip:hover { border-color: #10b981 !important; background-color: #f0fdf4 !important; }
+        .hover-danger:hover { color: #ef4444 !important; }
+        .hover-bg-light:hover { background-color: rgba(0,0,0,0.05); }
+        .fw-black { font-weight: 900 !important; }
+        .btn-white { background-color: white !important; }
+        .btn-white:hover { border-color: #10b981 !important; color: #10b981 !important; }
+      `}</style>
     </div>
   );
 };

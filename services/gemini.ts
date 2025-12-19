@@ -1,13 +1,10 @@
 
 import { GoogleGenAI } from "@google/genai";
 
-const getAIClient = () => {
-  return new GoogleGenAI({ apiKey: process.env.API_KEY });
-};
-
+// Initialize GoogleGenAI inside the function to ensure the latest API key is used from the environment
 export const getSessionAdvice = async (sessionsSummary: string) => {
   try {
-    const ai = getAIClient();
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `你是一位羽毛球俱乐部的高级管理人。根据以下最近的打球数据摘要，请给出3条简洁明了的建议，关于活动频率、费用控制或场地安排。用中文回答，保持专业和鼓励性。
@@ -19,6 +16,7 @@ export const getSessionAdvice = async (sessionsSummary: string) => {
         temperature: 0.7,
       }
     });
+    // Directly access the text property as a getter, not a method
     return response.text;
   } catch (error) {
     console.error("AI Insight Error:", error);

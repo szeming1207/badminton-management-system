@@ -214,7 +214,7 @@ const App: React.FC = () => {
             >
               {isSyncing ? <Loader2 size={12} className="animate-spin" /> : isOnline ? <Cloud size={14} /> : <CloudOff size={14} />}
               <span style={{ fontSize: '0.7rem' }} className="fw-black">
-                {syncError ? '同步错误' : isOnline ? 'Firebase 已同步' : '本地模式'}
+                {isOnline ? 'Firebase 已同步' : '本地模式'}
               </span>
             </button>
           </div>
@@ -247,21 +247,6 @@ const App: React.FC = () => {
               <button className="btn-close btn-close-white" onClick={() => setShowConfigGuide(false)}></button>
             </div>
             <div className="card-body p-4 bg-white">
-              {syncError && (
-                <div className="alert alert-danger border-0 rounded-3 d-flex align-items-start gap-3 p-3 mb-4">
-                  <AlertCircle size={20} className="mt-1 flex-shrink-0" />
-                  <div className="small">
-                    <p className="fw-black mb-1">连接中断</p>
-                    <p className="mb-0 opacity-75">{syncError}</p>
-                    <div className="mt-2 pt-2 border-top border-danger border-opacity-10">
-                      请前往 Firebase 控制台确认：<br />
-                      1. <b>Build &gt; Authentication</b> 已开启 <b>Anonymous</b> 登录方式。<br />
-                      2. <b>Build &gt; Firestore Database</b> 已点击 <b>Create Database</b>。<br />
-                      3. <b>Rules</b> 允许匿名读写。
-                    </div>
-                  </div>
-                </div>
-              )}
               <form onSubmit={handleSaveConfig}>
                 <div className="row g-3">
                   <div className="col-md-6">

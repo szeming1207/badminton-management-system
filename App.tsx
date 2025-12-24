@@ -25,32 +25,15 @@ const App: React.FC = () => {
   const [isSyncing, setIsSyncing] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isOnline, setIsOnline] = React.useState(false);
-  const [showConfigGuide, setShowConfigGuide] = React.useState(false);
   const [syncError, setSyncError] = React.useState<string | null>(null);
-
-  const [fbConfig, setFbConfig] = React.useState({
-    apiKey: '',
-    authDomain: '',
-    projectId: '',
-    storageBucket: '',
-    messagingSenderId: '',
-    appId: ''
-  });
 
   const isAdmin = userRole === 'admin';
 
-  // 核心修复：确保即使 Firebase 初始化慢一点，也能成功订阅
   React.useEffect(() => {
-    // 优先加载本地缓存（秒开体验）
     const savedSessions = localStorage.getItem(STORAGE_KEY);
     const savedLocations = localStorage.getItem(LOCATIONS_KEY);
     if (savedSessions) try { setSessions(JSON.parse(savedSessions)); } catch (e) {}
     if (savedLocations) try { setLocations(JSON.parse(savedLocations)); } catch (e) {}
-
-    const savedFbConfig = localStorage.getItem('sbg_firebase_config');
-    if (savedFbConfig) {
-      try { setFbConfig(JSON.parse(savedFbConfig)); } catch (e) {}
-    }
 
     let unsubSessions: () => void = () => {};
     let unsubLocations: () => void = () => {};
@@ -62,9 +45,6 @@ const App: React.FC = () => {
         return;
       }
 
-      const initError = firebaseService.getLastError();
-      if (initError) setSyncError(initError);
-
       unsubSessions = firebaseService.subscribeSessions((data) => {
         setSessions(data);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -72,7 +52,7 @@ const App: React.FC = () => {
         setIsLoading(false);
         setSyncError(null);
       }, (err) => {
-        setSyncError(err);
+        setSyncError("Secure connection lost.");
         setIsOnline(false);
         setIsLoading(false);
       });
@@ -85,7 +65,6 @@ const App: React.FC = () => {
       });
     };
 
-    // 延迟一小会儿执行，确保 firebase.ts 中的全局初始化完成
     const timer = setTimeout(startSubscriptions, 100);
 
     return () => {
@@ -103,28 +82,13 @@ const App: React.FC = () => {
     setUserRole(null);
   };
 
-  const handleSaveConfig = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!fbConfig.apiKey || !fbConfig.projectId) {
-      alert("请输入至少 API Key 和 Project ID");
-      return;
-    }
-    firebaseService.saveConfig(fbConfig);
-  };
-
-  const handleClearConfig = () => {
-    if (window.confirm("确定要清除 Firebase 配置并切换回本地模式吗？")) {
-      firebaseService.clearConfig();
-    }
-  };
-
   const updateSession = async (id: string, updated: Partial<Session>) => {
     if (firebaseService.isConfigured() && isOnline) {
       try {
         setIsSyncing(true);
         await firebaseService.updateSession(id, updated);
       } catch (err) {
-        console.error("Firebase Update Error:", err);
+        console.error("Update restricted.");
       } finally {
         setIsSyncing(false);
       }
@@ -148,7 +112,7 @@ const App: React.FC = () => {
       try {
         setIsSyncing(true);
         await firebaseService.addSession(newSession);
-      } catch (err) { console.error(err); } finally { setIsSyncing(false); }
+      } catch (err) { console.error("Write restricted."); } finally { setIsSyncing(false); }
     } else {
       const updated = [newSession, ...sessions];
       setSessions(updated);
@@ -162,7 +126,7 @@ const App: React.FC = () => {
         try {
           setIsSyncing(true);
           await firebaseService.deleteSession(id);
-        } catch (err) { console.error(err); } finally { setIsSyncing(false); }
+        } catch (err) { console.error("Delete restricted."); } finally { setIsSyncing(false); }
       } else {
         const updated = sessions.filter(s => s.id !== id);
         setSessions(updated);
@@ -176,7 +140,7 @@ const App: React.FC = () => {
       try {
         setIsSyncing(true);
         await firebaseService.saveLocations(newLocs);
-      } catch (err) { console.error(err); } finally { setIsSyncing(false); }
+      } catch (err) { console.error("Update restricted."); } finally { setIsSyncing(false); }
     } else {
       setLocations(newLocs);
       localStorage.setItem(LOCATIONS_KEY, JSON.stringify(newLocs));
@@ -215,15 +179,12 @@ const App: React.FC = () => {
             </div>
             <span className="fw-black h5 mb-0">SBG Badminton</span>
             
-            <button 
-              className={`ms-2 btn btn-sm rounded-pill border-0 d-flex align-items-center gap-1 ${isOnline ? 'text-primary bg-primary bg-opacity-10' : 'text-danger bg-danger bg-opacity-10'}`}
-              onClick={() => setShowConfigGuide(!showConfigGuide)}
-            >
+            <div className={`ms-2 px-2 py-1 rounded-pill d-flex align-items-center gap-1 ${isOnline ? 'text-primary bg-primary bg-opacity-10' : 'text-danger bg-danger bg-opacity-10'}`}>
               {isSyncing ? <Loader2 size={12} className="animate-spin" /> : isOnline ? <Cloud size={14} /> : <CloudOff size={14} />}
-              <span style={{ fontSize: '0.7rem' }} className="fw-black">
-                {isOnline ? 'Firebase 已同步' : '本地模式'}
+              <span style={{ fontSize: '0.7rem' }} className="fw-black text-uppercase">
+                {isOnline ? 'Encrypted Sync' : 'Offline Mode'}
               </span>
-            </button>
+            </div>
           </div>
           
           <div className="d-flex align-items-center gap-2">
@@ -244,58 +205,10 @@ const App: React.FC = () => {
       </nav>
 
       <main className="container py-2">
-        {syncError && !showConfigGuide && (
-          <div className="alert alert-danger rounded-4 shadow-sm mb-4 d-flex align-items-center gap-2">
+        {syncError && (
+          <div className="alert alert-warning rounded-4 shadow-sm mb-4 d-flex align-items-center gap-2">
             <AlertCircle size={18} />
-            <small className="fw-bold">连接故障：{syncError}。请检查 Firebase 配置。</small>
-          </div>
-        )}
-
-        {showConfigGuide && (
-          <div className="card border-0 shadow-lg rounded-4 overflow-hidden mb-4 animate-in slide-in-from-top duration-300">
-            <div className="card-header bg-dark text-white p-4 d-flex justify-content-between align-items-center">
-              <div className="d-flex align-items-center gap-2">
-                <Flame size={20} className="text-warning" />
-                <h6 className="fw-black mb-0 text-uppercase tracking-wider">Firebase 连接中心</h6>
-              </div>
-              <button className="btn-close btn-close-white" onClick={() => setShowConfigGuide(false)}></button>
-            </div>
-            <div className="card-body p-4 bg-white">
-              <form onSubmit={handleSaveConfig}>
-                <div className="row g-3">
-                  <div className="col-md-6">
-                    <div className="vstack gap-2">
-                      <div>
-                        <label className="x-small fw-black text-muted text-uppercase mb-1" style={{ fontSize: '0.65rem' }}>Firebase API Key</label>
-                        <input type="text" className="form-control form-control-sm" placeholder="AIzaSy..." value={fbConfig.apiKey} onChange={e => setFbConfig({...fbConfig, apiKey: e.target.value})} />
-                      </div>
-                      <div>
-                        <label className="x-small fw-black text-muted text-uppercase mb-1" style={{ fontSize: '0.65rem' }}>Project ID</label>
-                        <input type="text" className="form-control form-control-sm" placeholder="my-project-id" value={fbConfig.projectId} onChange={e => setFbConfig({...fbConfig, projectId: e.target.value})} />
-                      </div>
-                      <div>
-                        <label className="x-small fw-black text-muted text-uppercase mb-1" style={{ fontSize: '0.65rem' }}>Auth Domain</label>
-                        <input type="text" className="form-control form-control-sm" placeholder="project.firebaseapp.com" value={fbConfig.authDomain} onChange={e => setFbConfig({...fbConfig, authDomain: e.target.value})} />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="col-md-6 border-start border-light ps-md-4">
-                    <p className="small text-muted mb-3 fw-bold">配置说明：</p>
-                    <p className="small text-muted mb-4">
-                      为了让大家都能连接到数据库，请在 <b>services/firebase.ts</b> 文件中找到 <code>GLOBAL_CONFIG</code> 并填入您的配置。
-                    </p>
-                    <div className="mt-4 d-flex gap-2">
-                      <button type="submit" className="btn btn-success btn-sm flex-grow-1 fw-black d-flex align-items-center justify-content-center gap-2">
-                        <Save size={14} /> 保存到此浏览器
-                      </button>
-                      <button type="button" onClick={handleClearConfig} className="btn btn-outline-danger btn-sm fw-black">
-                        <Trash2 size={14} /> 恢复默认
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </form>
-            </div>
+            <small className="fw-bold">{syncError}</small>
           </div>
         )}
 

@@ -14,38 +14,26 @@ import {
 } from "firebase/firestore";
 import { getAuth, signInAnonymously } from "firebase/auth";
 
-const CONFIG_KEY = 'sbg_firebase_config';
-
 /**
- * 【关键步骤】
- * 请将你在网页表单中填写的 Firebase 配置粘贴到下面的 GLOBAL_CONFIG 中。
- * 这样部署后，所有人打开网页都会自动连接，无需再次输入。
+ * 安全最佳实践：
+ * 所有敏感信息均通过环境变量 process.env 获取。
+ * 在生产环境中，这些变量由构建系统或服务器注入，不会直接暴露在源码库中。
  */
-const GLOBAL_CONFIG = {
-  apiKey: "AIzaSyDpjLq0-sP7U-YpgfFvZRpjpvq3TNj1Fdc", // 粘贴你的 apiKey
-  authDomain: "badminton-b513e.firebaseapp.com", // 粘贴你的 authDomain
-  projectId: "badminton-b513e", // 粘贴你的 projectId
-  storageBucket: "badminton-b513e.firebasestorage.app", // 粘贴你的 storageBucket
-  messagingSenderId: "504434789296", // 粘贴你的 messagingSenderId
-  appId: "1:504434789296:web:e1510b72b16af858bc6475" // 粘贴你的 appId
-};
-
 const getConfiguration = () => {
-  // 优先使用硬编码的全局配置
-  if (GLOBAL_CONFIG.apiKey && GLOBAL_CONFIG.projectId) {
-    return GLOBAL_CONFIG;
+  const config = {
+    apiKey: process.env.FIREBASE_API_KEY || process.env.API_KEY, // 兼容通用 API_KEY 变量
+    authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.FIREBASE_APP_ID
+  };
+
+  if (!config.apiKey || !config.projectId) {
+    console.warn("Firebase configuration is missing. Running in limited local mode.");
+    return null;
   }
-  
-  // 备选：从 LocalStorage 读取（用于开发调试）
-  const savedConfig = localStorage.getItem(CONFIG_KEY);
-  if (savedConfig) {
-    try {
-      return JSON.parse(savedConfig);
-    } catch (e) {
-      console.error("Failed to parse saved Firebase config");
-    }
-  }
-  return null;
+  return config;
 };
 
 const config = getConfiguration();
@@ -53,66 +41,34 @@ let db: any = null;
 let auth: any = null;
 let lastError: string | null = null;
 
-if (config && config.apiKey && config.projectId) {
+if (config) {
   try {
-    const cleanConfig = {
-      apiKey: config.apiKey.trim(),
-      authDomain: (config.authDomain || '').trim(),
-      projectId: config.projectId.trim(),
-      storageBucket: (config.storageBucket || '').trim(),
-      messagingSenderId: (config.messagingSenderId || '').trim(),
-      appId: (config.appId || '').trim()
-    };
-
-    const app = !getApps().length ? initializeApp(cleanConfig) : getApp();
+    const app = !getApps().length ? initializeApp(config) : getApp();
+    db = getFirestore(app);
+    auth = getAuth(app);
     
-    // 确保在尝试获取 Firestore 之前 App 已初始化
-    try {
-      db = getFirestore(app);
-      auth = getAuth(app);
-      
-      enableNetwork(db).catch((err) => {
-        console.warn("Firestore Network enable warning:", err);
+    enableNetwork(db).catch(() => {});
+    
+    if (auth) {
+      // 匿名登录以获取合法的 Auth 令牌，这配合 Firestore Security Rules 可以极大增加攻击成本
+      signInAnonymously(auth).catch((err: any) => {
+        lastError = `Security Auth Error: ${err.code}`;
       });
-      
-      if (auth) {
-        signInAnonymously(auth).catch((err: any) => {
-          lastError = `身份认证失败: ${err.message}`;
-          console.error(lastError);
-        });
-      }
-    } catch (fsError: any) {
-      lastError = `Firestore 加载失败: ${fsError.message}`;
-      console.error("Firestore Init Error:", fsError);
     }
   } catch (e: any) {
-    lastError = `Firebase App 初始化错误: ${e.message}`;
-    console.error("Firebase App Init Error:", e);
+    lastError = "Connection initialization failed.";
+    console.error("Firebase Init Error");
   }
 }
 
 export const firebaseService = {
   isConfigured: () => !!db,
-  isGlobal: () => !!(GLOBAL_CONFIG.apiKey && GLOBAL_CONFIG.projectId),
   getLastError: () => lastError,
 
-  saveConfig: (newConfig: any) => {
-    const trimmedConfig = Object.keys(newConfig).reduce((acc: any, key) => {
-      acc[key] = typeof newConfig[key] === 'string' ? newConfig[key].trim() : newConfig[key];
-      return acc;
-    }, {});
-    localStorage.setItem(CONFIG_KEY, JSON.stringify(trimmedConfig));
-    window.location.reload();
-  },
-
-  clearConfig: () => {
-    localStorage.removeItem(CONFIG_KEY);
-    window.location.reload();
-  },
+  // 移除了 saveConfig 和 clearConfig 以防止未经授权的操作
 
   subscribeSessions: (callback: (data: any[]) => void, onError?: (err: string) => void) => {
     if (!db) return () => {};
-    
     try {
       const q = query(collection(db, "sessions"), orderBy("date", "desc"));
       return onSnapshot(q, (snapshot) => {
@@ -122,10 +78,9 @@ export const firebaseService = {
         }));
         callback(sessions);
       }, (error) => {
-        if (onError) onError(error.message);
+        if (onError) onError("Permission denied or link lost.");
       });
     } catch (e: any) {
-      if (onError) onError(e.message);
       return () => {};
     }
   },
@@ -139,8 +94,6 @@ export const firebaseService = {
           id: doc.id
         }));
         callback(locations);
-      }, (err) => {
-        console.warn("Locations sync error:", err.message);
       });
     } catch (e) {
       return () => {};

@@ -44,7 +44,6 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
   const isFull = participantCount >= maxParticipants;
   const costPerPerson = participantCount > 0 ? totalCost / participantCount : totalCost;
 
-  // 辅助函数：判断成员是否在申请删除名单中
   const isPendingDeletion = (name: string) => {
     return session.deletionRequests?.includes(name) || false;
   };
@@ -98,10 +97,9 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
     setIsEditingDetails(false);
   };
 
-  // 核心修改：移除/申请移除逻辑
   const handleRemoveClick = (name: string) => {
     if (isAdmin) {
-      if (window.confirm(`管理员：确定直接移除 "${name}" 吗？`)) {
+      if (window.confirm(`管理员权限：确定直接从名单中移除 "${name}" 吗？`)) {
         onUpdate({ 
           participants: session.participants.filter(p => p !== name),
           deletionRequests: (session.deletionRequests || []).filter(p => p !== name)
@@ -109,10 +107,10 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
       }
     } else {
       if (isPendingDeletion(name)) {
-        alert("该成员已提交退出申请，请等待管理员审批。");
+        alert("您已经提交过退出申请了，请等待管理员处理。");
         return;
       }
-      if (window.confirm(`确定要申请退出吗？申请后需等待管理员审批。`)) {
+      if (window.confirm(`确定要申请退出吗？\n您的申请将提交给管理员审核，审核通过后才会从名单移除。`)) {
         const currentRequests = session.deletionRequests || [];
         onUpdate({ deletionRequests: [...currentRequests, name] });
       }
@@ -120,7 +118,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
   };
 
   const handleApproveDeletion = (name: string) => {
-    if (window.confirm(`审批通过：确认将 "${name}" 从名单中移除吗？`)) {
+    if (window.confirm(`确认批准 "${name}" 退出并退款/移除名单吗？`)) {
       onUpdate({ 
         participants: session.participants.filter(p => p !== name),
         deletionRequests: (session.deletionRequests || []).filter(p => p !== name)
@@ -129,7 +127,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
   };
 
   const handleRejectDeletion = (name: string) => {
-    if (window.confirm(`审批驳回：拒绝 "${name}" 的退出申请吗？`)) {
+    if (window.confirm(`确认驳回 "${name}" 的退出申请吗？`)) {
       onUpdate({ 
         deletionRequests: (session.deletionRequests || []).filter(p => p !== name)
       });
@@ -155,68 +153,37 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
         <div className="d-flex justify-content-between align-items-start">
           <div className="flex-grow-1">
             {isEditingDetails ? (
-              <div className="vstack gap-2 mt-2 bg-white p-3 rounded-3 shadow-sm border border-success border-opacity-25">
-                <div>
-                  <label className="x-small fw-black text-muted text-uppercase d-block mb-1">修改活动日期</label>
-                  <div className="d-flex align-items-center gap-2">
-                    <CalendarIcon size={14} className="text-success" />
-                    <input 
-                      type="date"
-                      value={editDate}
-                      onChange={(e) => setEditDate(e.target.value)}
-                      className="form-control form-control-sm fw-bold rounded-2 border-success border-opacity-50"
-                      style={{ width: '100%' }}
-                    />
-                  </div>
-                </div>
-                
+              <div className="vstack gap-2 mt-2 bg-white p-3 rounded-3 shadow-sm border border-success border-opacity-25 animate-in slide-in-from-top-2">
                 <div className="row g-2">
-                  <div className="col-8">
+                   <div className="col-12">
+                     <label className="x-small fw-black text-muted text-uppercase d-block mb-1">修改活动日期</label>
+                     <input 
+                       type="date"
+                       value={editDate}
+                       onChange={(e) => setEditDate(e.target.value)}
+                       className="form-control form-control-sm fw-bold border-success border-opacity-50"
+                     />
+                   </div>
+                   <div className="col-8">
                     <label className="x-small fw-black text-muted text-uppercase d-block mb-1">时间段</label>
                     <div className="d-flex align-items-center gap-2">
-                      <Clock size={14} className="text-success" />
-                      <select 
-                        value={editStartTime} 
-                        onChange={(e) => setEditStartTime(e.target.value)}
-                        className="form-select form-select-sm fw-bold rounded-2"
-                      >
+                      <select value={editStartTime} onChange={(e) => setEditStartTime(e.target.value)} className="form-select form-select-sm fw-bold">
                         {timeOptions.map(t => <option key={t} value={t}>{t}</option>)}
                       </select>
                       <span className="text-muted">-</span>
-                      <select 
-                        value={editEndTime} 
-                        onChange={(e) => setEditEndTime(e.target.value)}
-                        className="form-select form-select-sm fw-bold rounded-2"
-                      >
+                      <select value={editEndTime} onChange={(e) => setEditEndTime(e.target.value)} className="form-select form-select-sm fw-bold">
                         {timeOptions.map(t => <option key={t} value={t}>{t}</option>)}
                       </select>
                     </div>
                   </div>
                   <div className="col-4">
                     <label className="x-small fw-black text-muted text-uppercase d-block mb-1">场地数</label>
-                    <input 
-                      type="number" 
-                      min="1"
-                      value={editCourtCount} 
-                      onChange={(e) => setEditCourtCount(parseInt(e.target.value) || 1)}
-                      className="form-control form-control-sm fw-bold rounded-2 text-center"
-                    />
+                    <input type="number" min="1" value={editCourtCount} onChange={(e) => setEditCourtCount(parseInt(e.target.value) || 1)} className="form-control form-control-sm fw-bold text-center" />
                   </div>
                 </div>
-
                 <div className="d-flex gap-2 mt-2">
-                  <button onClick={handleUpdateDetails} className="btn btn-success btn-sm flex-grow-1 fw-black d-flex align-items-center justify-content-center gap-1 shadow-sm">
-                    <Check size={14} /> 保存修改
-                  </button>
-                  <button onClick={() => {
-                    setIsEditingDetails(false);
-                    setEditDate(session.date);
-                    setEditStartTime(session.time.split(' - ')[0]);
-                    setEditEndTime(session.time.split(' - ')[1]);
-                    setEditCourtCount(session.courtCount);
-                  }} className="btn btn-light btn-sm px-3 border">
-                    <X size={14} />
-                  </button>
+                  <button onClick={handleUpdateDetails} className="btn btn-success btn-sm flex-grow-1 fw-black shadow-sm">保存</button>
+                  <button onClick={() => setIsEditingDetails(false)} className="btn btn-light btn-sm border">取消</button>
                 </div>
               </div>
             ) : (
@@ -236,11 +203,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
                     <span>{session.courtCount} 场地</span>
                   </div>
                   {isAdmin && (
-                    <button 
-                      onClick={() => setIsEditingDetails(true)} 
-                      className="btn btn-link text-success p-1 rounded-circle hover-bg-light"
-                      title="编辑详情"
-                    >
+                    <button onClick={() => setIsEditingDetails(true)} className="btn btn-link text-success p-1 rounded-circle hover-bg-light" title="编辑详情">
                       <Edit2 size={14} />
                     </button>
                   )}
@@ -248,7 +211,6 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
               </>
             )}
           </div>
-          
           {isAdmin && (
             <button onClick={onDelete} className="btn btn-link text-muted p-2 rounded-circle hover-danger">
               <Trash2 size={20} />
@@ -262,11 +224,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
           <div className="d-flex justify-content-between align-items-center mb-1">
             <small className="text-muted fw-black text-uppercase tracking-wider" style={{ fontSize: '0.65rem' }}>总费用预算</small>
             {isAdmin && (
-              <button 
-                onClick={() => setIsEditingCosts(!isEditingCosts)} 
-                className={`btn btn-sm p-1 rounded ${isEditingCosts ? 'btn-success bg-opacity-10' : 'text-muted hover-success'}`}
-                title="修改费用"
-              >
+              <button onClick={() => setIsEditingCosts(!isEditingCosts)} className={`btn btn-sm p-1 rounded ${isEditingCosts ? 'btn-success bg-opacity-10' : 'text-muted hover-success'}`}>
                 <Edit3 size={14} />
               </button>
             )}
@@ -275,48 +233,20 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
           <div className="vstack">
             {isEditingCosts ? (
               <div className="vstack gap-1 mt-2 p-2 bg-success bg-opacity-10 rounded-3">
-                <div className="d-flex align-items-center gap-2 mb-1">
-                  <small className="fw-black text-success" style={{ fontSize: '0.6rem' }}>场地费</small>
-                  <input 
-                    type="number" 
-                    readOnly
-                    value={tempCourtFee.toFixed(2)} 
-                    className="form-control form-control-sm fw-black border-0 bg-transparent py-0 px-1 text-success cursor-not-allowed"
-                    style={{ height: '24px' }}
-                  />
+                <div className="d-flex align-items-center justify-content-between px-1">
+                  <small className="fw-black text-success x-small">球数</small>
+                  <input type="number" value={tempShuttleQty} onChange={(e) => setTempShuttleQty(parseInt(e.target.value) || 0)} className="form-control form-control-sm border-success py-0 px-1 text-center" style={{ width: '40px', height: '22px' }} />
                 </div>
-                <div className="d-flex align-items-center gap-2">
-                  <small className="fw-black text-success" style={{ fontSize: '0.6rem' }}>球数量</small>
-                  <input 
-                    type="number" 
-                    value={tempShuttleQty} 
-                    onChange={(e) => setTempShuttleQty(parseInt(e.target.value) || 0)}
-                    className="form-control form-control-sm fw-black border-success py-0 px-1 shadow-sm"
-                    style={{ height: '24px' }}
-                  />
+                <div className="d-flex align-items-center justify-content-between px-1">
+                  <small className="fw-black text-success x-small">单价</small>
+                  <input type="number" step="0.1" value={tempShuttlePrice} onChange={(e) => setTempShuttlePrice(parseFloat(e.target.value) || 0)} className="form-control form-control-sm border-success py-0 px-1 text-center" style={{ width: '60px', height: '22px' }} />
                 </div>
-                <div className="d-flex align-items-center gap-2">
-                  <small className="fw-black text-success" style={{ fontSize: '0.6rem' }}>球单价</small>
-                  <input 
-                    type="number" 
-                    step="0.1"
-                    value={tempShuttlePrice} 
-                    onChange={(e) => setTempShuttlePrice(parseFloat(e.target.value) || 0)}
-                    className="form-control form-control-sm fw-black border-success py-0 px-1 shadow-sm"
-                    style={{ height: '24px' }}
-                  />
-                </div>
-                <div className="d-flex gap-1 mt-2">
-                  <button onClick={handleUpdateCosts} className="btn btn-success btn-sm w-100 py-0 fw-black shadow-sm" style={{ fontSize: '0.7rem' }}>保存</button>
-                  <button onClick={() => setIsEditingCosts(false)} className="btn btn-light btn-sm w-100 py-0 border" style={{ fontSize: '0.7rem' }}>取消</button>
-                </div>
+                <button onClick={handleUpdateCosts} className="btn btn-success btn-sm w-100 py-0 fw-black shadow-sm mt-1" style={{ fontSize: '0.7rem' }}>保存</button>
               </div>
             ) : (
               <>
                 <small className="text-muted fw-bold" style={{ fontSize: '0.7rem' }}>场地: RM {session.courtFee.toFixed(2)}</small>
-                <small className="text-muted fw-bold" style={{ fontSize: '0.7rem' }}>
-                  用球: {session.shuttleQty} x RM {session.shuttlePrice.toFixed(2)}
-                </small>
+                <small className="text-muted fw-bold" style={{ fontSize: '0.7rem' }}>用球: {session.shuttleQty} x RM {session.shuttlePrice.toFixed(2)}</small>
               </>
             )}
           </div>
@@ -334,10 +264,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
 
       <div className="card-body p-4 d-flex flex-column gap-3">
         <div className="d-flex justify-content-between align-items-center">
-          <h6 className="fw-black mb-0 d-flex align-items-center gap-2">
-            <Users size={18} className="text-success" />
-            报名名单
-          </h6>
+          <h6 className="fw-black mb-0 d-flex align-items-center gap-2"><Users size={18} className="text-success" />报名名单</h6>
           <button onClick={() => setShowQuickAdd(!showQuickAdd)} className="btn btn-link btn-sm text-success text-decoration-none fw-black p-0 d-flex align-items-center gap-1">
             {showQuickAdd ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
             <small>常用名单</small>
@@ -348,14 +275,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
           <div className="p-3 bg-light rounded-4 border animate-in fade-in">
             <div className="d-flex flex-wrap gap-2 overflow-auto" style={{ maxHeight: '100px' }}>
               {frequentParticipants.filter(n => !session.participants.includes(n)).map(name => (
-                <button 
-                  key={name}
-                  onClick={() => handleAddName(name)}
-                  disabled={isFull}
-                  className="btn btn-sm btn-white border rounded-pill px-3 py-1 fw-bold small shadow-sm"
-                >
-                  + {name}
-                </button>
+                <button key={name} onClick={() => handleAddName(name)} disabled={isFull} className="btn btn-sm btn-white border rounded-pill px-3 py-1 fw-bold small shadow-sm">+ {name}</button>
               ))}
               {frequentParticipants.length === 0 && <span className="small text-muted">暂无常用名单</span>}
             </div>
@@ -368,11 +288,11 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
               {session.participants.map(name => {
                 const pending = isPendingDeletion(name);
                 return (
-                  <div key={name} className={`d-flex align-items-center justify-content-between p-2 px-3 border rounded-3 transition-all ${pending ? 'bg-light opacity-75 border-dashed text-muted' : 'bg-white shadow-sm'}`}>
+                  <div key={name} className={`d-flex align-items-center justify-content-between p-2 px-3 border rounded-3 transition-all ${pending ? 'bg-warning bg-opacity-10 border-warning border-dashed' : 'bg-white shadow-sm'}`}>
                     <div className="d-flex align-items-center gap-2">
-                      <span className={`fw-bold ${pending ? 'text-decoration-line-through' : ''}`}>{name}</span>
+                      <span className={`fw-bold ${pending ? 'text-decoration-line-through text-muted' : 'text-dark'}`}>{name}</span>
                       {pending && (
-                        <span className="badge bg-warning bg-opacity-10 text-warning rounded-pill x-small fw-black d-flex align-items-center gap-1 border border-warning border-opacity-25">
+                        <span className="badge bg-warning text-warning bg-opacity-10 border border-warning border-opacity-25 rounded-pill px-2 py-1 x-small animate-pulse d-flex align-items-center gap-1">
                           <ShieldAlert size={10} /> 待审批退出
                         </span>
                       )}
@@ -380,28 +300,12 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
                     
                     <div className="d-flex align-items-center gap-1">
                       {isAdmin && pending ? (
-                        <>
-                          <button 
-                            onClick={() => handleApproveDeletion(name)}
-                            className="btn btn-success btn-sm rounded-circle p-1 shadow-sm"
-                            title="同意退出"
-                          >
-                            <UserCheck size={14} />
-                          </button>
-                          <button 
-                            onClick={() => handleRejectDeletion(name)}
-                            className="btn btn-outline-danger btn-sm rounded-circle p-1"
-                            title="拒绝退出"
-                          >
-                            <UserX size={14} />
-                          </button>
-                        </>
+                        <div className="d-flex gap-1 animate-in zoom-in">
+                          <button onClick={() => handleApproveDeletion(name)} className="btn btn-success btn-sm rounded-circle p-1 shadow-sm" title="批准退出"><UserCheck size={14} /></button>
+                          <button onClick={() => handleRejectDeletion(name)} className="btn btn-outline-danger btn-sm rounded-circle p-1" title="驳回申请"><UserX size={14} /></button>
+                        </div>
                       ) : (
-                        <button 
-                          onClick={() => handleRemoveClick(name)} 
-                          className={`btn btn-link p-1 text-muted border-0 hover-${isAdmin ? 'danger' : 'warning'}`}
-                          title={isAdmin ? "直接移除" : "申请退出"}
-                        >
+                        <button onClick={() => handleRemoveClick(name)} className={`btn btn-link p-1 text-muted border-0 hover-${isAdmin ? 'danger' : 'warning'}`} title={isAdmin ? "直接移除" : "申请退出"}>
                           {isAdmin ? <Trash2 size={16} /> : <X size={16} />}
                         </button>
                       )}
@@ -426,20 +330,8 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
             </div>
           ) : (
             <form onSubmit={(e) => { e.preventDefault(); handleAddName(newName); }} className="input-group">
-              <input
-                type="text"
-                placeholder="填写名字报名..."
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                className="form-control bg-light border-0 rounded-start-4 px-4 py-3 fw-bold shadow-none"
-              />
-              <button 
-                type="submit"
-                className="btn btn-success rounded-end-4 px-4 shadow-sm"
-                disabled={!newName.trim() || isFull}
-              >
-                <UserPlus size={24} />
-              </button>
+              <input type="text" placeholder="填写名字报名..." value={newName} onChange={(e) => setNewName(e.target.value)} className="form-control bg-light border-0 rounded-start-4 px-4 py-3 fw-bold shadow-none" />
+              <button type="submit" className="btn btn-success rounded-end-4 px-4 shadow-sm" disabled={!newName.trim() || isFull}><UserPlus size={24} /></button>
             </form>
           )}
         </div>
@@ -451,6 +343,8 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
         .fw-black { font-weight: 900 !important; }
         .x-small { font-size: 0.65rem; }
         .transition-all { transition: all 0.2s ease; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+        .animate-pulse { animation: pulse 2s infinite ease-in-out; }
       `}</style>
     </div>
   );

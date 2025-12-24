@@ -39,7 +39,9 @@ const App: React.FC = () => {
 
   const isAdmin = userRole === 'admin';
 
+  // 核心修复：确保即使 Firebase 初始化慢一点，也能成功订阅
   React.useEffect(() => {
+    // 优先加载本地缓存（秒开体验）
     const savedSessions = localStorage.getItem(STORAGE_KEY);
     const savedLocations = localStorage.getItem(LOCATIONS_KEY);
     if (savedSessions) try { setSessions(JSON.parse(savedSessions)); } catch (e) {}
@@ -50,37 +52,46 @@ const App: React.FC = () => {
       try { setFbConfig(JSON.parse(savedFbConfig)); } catch (e) {}
     }
 
-    if (!firebaseService.isConfigured()) {
-      setIsLoading(false);
-      setIsOnline(false);
-      return;
-    }
+    let unsubSessions: () => void = () => {};
+    let unsubLocations: () => void = () => {};
 
-    const initError = firebaseService.getLastError();
-    if (initError) setSyncError(initError);
-
-    const unsubscribeSessions = firebaseService.subscribeSessions((data) => {
-      setSessions(data);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      setIsOnline(true);
-      setIsLoading(false);
-      setSyncError(null);
-    }, (err) => {
-      setSyncError(err);
-      setIsOnline(false);
-      setIsLoading(false);
-    });
-
-    const unsubscribeLocations = firebaseService.subscribeLocations((data) => {
-      if (data.length > 0) {
-        setLocations(data);
-        localStorage.setItem(LOCATIONS_KEY, JSON.stringify(data));
+    const startSubscriptions = () => {
+      if (!firebaseService.isConfigured()) {
+        setIsLoading(false);
+        setIsOnline(false);
+        return;
       }
-    });
+
+      const initError = firebaseService.getLastError();
+      if (initError) setSyncError(initError);
+
+      unsubSessions = firebaseService.subscribeSessions((data) => {
+        setSessions(data);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        setIsOnline(true);
+        setIsLoading(false);
+        setSyncError(null);
+      }, (err) => {
+        setSyncError(err);
+        setIsOnline(false);
+        setIsLoading(false);
+      });
+
+      unsubLocations = firebaseService.subscribeLocations((data) => {
+        if (data.length > 0) {
+          setLocations(data);
+          localStorage.setItem(LOCATIONS_KEY, JSON.stringify(data));
+        }
+      });
+    };
+
+    // 延迟一小会儿执行，确保 firebase.ts 中的全局初始化完成
+    const timer = setTimeout(startSubscriptions, 100);
 
     return () => {
-      unsubscribeSessions();
-      unsubscribeLocations();
+      clearTimeout(timer);
+      unsubSessions();
+      unsubLocations();
     };
   }, []);
 
@@ -129,7 +140,8 @@ const App: React.FC = () => {
       ...sessionData,
       id: crypto.randomUUID(),
       participants: [],
-      deletionRequests: [], // 明确初始化为空
+      deletionRequests: [],
+      maxParticipants: sessionData.maxParticipants || 8,
     };
     setIsModalOpen(false);
     if (firebaseService.isConfigured() && isOnline) {
@@ -232,6 +244,13 @@ const App: React.FC = () => {
       </nav>
 
       <main className="container py-2">
+        {syncError && !showConfigGuide && (
+          <div className="alert alert-danger rounded-4 shadow-sm mb-4 d-flex align-items-center gap-2">
+            <AlertCircle size={18} />
+            <small className="fw-bold">连接故障：{syncError}。请检查 Firebase 配置。</small>
+          </div>
+        )}
+
         {showConfigGuide && (
           <div className="card border-0 shadow-lg rounded-4 overflow-hidden mb-4 animate-in slide-in-from-top duration-300">
             <div className="card-header bg-dark text-white p-4 d-flex justify-content-between align-items-center">
@@ -301,7 +320,7 @@ const App: React.FC = () => {
                 <Clock size={20} className="text-success" />
                 活跃场次 ({activeSessions.length})
               </h5>
-              {isLoading ? (
+              {isLoading && !sessions.length ? (
                 <div className="text-center py-5"><Loader2 size={32} className="animate-spin text-success opacity-25" /></div>
               ) : activeSessions.length === 0 ? (
                 <div className="text-center py-5 bg-white rounded-4 border border-dashed text-muted">目前暂无活动</div>

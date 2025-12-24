@@ -42,6 +42,7 @@ const App: React.FC = () => {
       if (!firebaseService.isConfigured()) {
         setIsLoading(false);
         setIsOnline(false);
+        setSyncError("Cloud Config Missing: 请检查 services/firebase.ts");
         return;
       }
 
@@ -65,7 +66,7 @@ const App: React.FC = () => {
       });
     };
 
-    const timer = setTimeout(startSubscriptions, 100);
+    const timer = setTimeout(startSubscriptions, 200);
 
     return () => {
       clearTimeout(timer);
@@ -182,7 +183,7 @@ const App: React.FC = () => {
             <div className={`ms-2 px-2 py-1 rounded-pill d-flex align-items-center gap-1 ${isOnline ? 'text-primary bg-primary bg-opacity-10' : 'text-danger bg-danger bg-opacity-10'}`}>
               {isSyncing ? <Loader2 size={12} className="animate-spin" /> : isOnline ? <Cloud size={14} /> : <CloudOff size={14} />}
               <span style={{ fontSize: '0.7rem' }} className="fw-black text-uppercase">
-                {isOnline ? 'Encrypted Sync' : 'Offline Mode'}
+                {isOnline ? 'Encrypted Sync' : isSyncing ? 'Connecting...' : 'Offline Mode'}
               </span>
             </div>
           </div>
@@ -206,9 +207,9 @@ const App: React.FC = () => {
 
       <main className="container py-2">
         {syncError && (
-          <div className="alert alert-warning rounded-4 shadow-sm mb-4 d-flex align-items-center gap-2">
-            <AlertCircle size={18} />
-            <small className="fw-bold">{syncError}</small>
+          <div className="alert alert-warning rounded-4 shadow-sm mb-4 d-flex align-items-center gap-2 border-0 bg-warning bg-opacity-10">
+            <AlertCircle size={18} className="text-warning" />
+            <small className="fw-bold text-dark">{syncError}</small>
           </div>
         )}
 

@@ -15,25 +15,32 @@ import {
 import { getAuth, signInAnonymously } from "firebase/auth";
 
 /**
- * 安全最佳实践：
- * 所有敏感信息均通过环境变量 process.env 获取。
- * 在生产环境中，这些变量由构建系统或服务器注入，不会直接暴露在源码库中。
+ * 【安全配置区域】
+ * 优先从环境变量读取，如果环境变量不存在，请在下方手动填写你的 Firebase 配置。
+ * 建议在生产环境中使用 CI/CD 注入环境变量。
  */
-const getConfiguration = () => {
-  const config = {
-    apiKey: process.env.FIREBASE_API_KEY || process.env.API_KEY, // 兼容通用 API_KEY 变量
-    authDomain: process.env.FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.FIREBASE_PROJECT_ID,
-    storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.FIREBASE_APP_ID
-  };
+const SECURE_CONFIG = {
+  apiKey: process.env.FIREBASE_API_KEY || process.env.API_KEY || "YOUR_FIREBASE_API_KEY", // 填入你的 API Key
+  authDomain: process.env.FIREBASE_AUTH_DOMAIN || "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: process.env.FIREBASE_PROJECT_ID || "YOUR_PROJECT_ID", // 填入你的 Project ID
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET || "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || "YOUR_MESSAGING_SENDER_ID",
+  appId: process.env.FIREBASE_APP_ID || "YOUR_APP_ID"
+};
 
-  if (!config.apiKey || !config.projectId) {
-    console.warn("Firebase configuration is missing. Running in limited local mode.");
+const getConfiguration = () => {
+  // 检查关键参数是否已替换（不是占位符且不为空）
+  const isConfigured = 
+    SECURE_CONFIG.apiKey && 
+    SECURE_CONFIG.apiKey !== "YOUR_FIREBASE_API_KEY" &&
+    SECURE_CONFIG.projectId && 
+    SECURE_CONFIG.projectId !== "YOUR_PROJECT_ID";
+
+  if (!isConfigured) {
+    console.warn("Firebase 尚未配置。请在 services/firebase.ts 中填入你的 Firebase 密钥。");
     return null;
   }
-  return config;
+  return SECURE_CONFIG;
 };
 
 const config = getConfiguration();
@@ -47,25 +54,23 @@ if (config) {
     db = getFirestore(app);
     auth = getAuth(app);
     
+    // 强制尝试在线连接
     enableNetwork(db).catch(() => {});
     
     if (auth) {
-      // 匿名登录以获取合法的 Auth 令牌，这配合 Firestore Security Rules 可以极大增加攻击成本
       signInAnonymously(auth).catch((err: any) => {
         lastError = `Security Auth Error: ${err.code}`;
       });
     }
   } catch (e: any) {
     lastError = "Connection initialization failed.";
-    console.error("Firebase Init Error");
+    console.error("Firebase Init Error:", e);
   }
 }
 
 export const firebaseService = {
   isConfigured: () => !!db,
   getLastError: () => lastError,
-
-  // 移除了 saveConfig 和 clearConfig 以防止未经授权的操作
 
   subscribeSessions: (callback: (data: any[]) => void, onError?: (err: string) => void) => {
     if (!db) return () => {};
@@ -78,7 +83,8 @@ export const firebaseService = {
         }));
         callback(sessions);
       }, (error) => {
-        if (onError) onError("Permission denied or link lost.");
+        console.error("Snapshot error:", error);
+        if (onError) onError("Permission denied or connection lost.");
       });
     } catch (e: any) {
       return () => {};

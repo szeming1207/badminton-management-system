@@ -1,19 +1,19 @@
 
-import { initializeApp } from "firebase/app";
+// Fix: Use namespace imports for app and auth to resolve 'no exported member' errors in certain environments
+import * as firebaseApp from "firebase/app";
 import { 
   getFirestore, 
   collection, 
   onSnapshot, 
-  addDoc, 
   updateDoc, 
   deleteDoc, 
   doc, 
   query, 
   orderBy,
   setDoc,
-  getDoc
+  enableNetwork
 } from "firebase/firestore";
-import { getAuth, signInAnonymously } from "firebase/auth";
+import * as firebaseAuth from "firebase/auth";
 
 const CONFIG_KEY = 'sbg_firebase_config';
 
@@ -26,36 +26,40 @@ const getConfiguration = () => {
       console.error("Failed to parse saved Firebase config");
     }
   }
-  
-  // Use environment variables as fallback
-  return {
-    apiKey: process.env.FIREBASE_API_KEY || '',
-    authDomain: process.env.FIREBASE_AUTH_DOMAIN || '',
-    projectId: process.env.FIREBASE_PROJECT_ID || '',
-    storageBucket: process.env.FIREBASE_STORAGE_BUCKET || '',
-    messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || '',
-    appId: process.env.FIREBASE_APP_ID || ''
-  };
+  return null;
 };
 
-const firebaseConfig = getConfiguration();
-let app: any = null;
+const config = getConfiguration();
 let db: any = null;
 let auth: any = null;
+let lastError: string | null = null;
 
-if (firebaseConfig.apiKey && firebaseConfig.projectId) {
+// Initialize Firebase using the namespace-safe access patterns for modular SDK
+if (config && config.apiKey && config.projectId) {
   try {
-    app = initializeApp(firebaseConfig);
+    const app = !firebaseApp.getApps().length ? firebaseApp.initializeApp(config) : firebaseApp.getApp();
     db = getFirestore(app);
-    auth = getAuth(app);
-    signInAnonymously(auth).catch(err => console.error("Firebase Auth Error:", err));
-  } catch (e) {
-    console.error("Firebase Initialization Error:", e);
+    auth = firebaseAuth.getAuth(app);
+    
+    // Asynchronously attempt to enable network
+    enableNetwork(db).catch(() => {});
+    
+    // Execute anonymous login via the auth namespace
+    if (auth) {
+      firebaseAuth.signInAnonymously(auth).catch((err: any) => {
+        lastError = `登录失败: 请在 Firebase 控制台开启 Anonymous 登录。(${err.code})`;
+        console.error(lastError);
+      });
+    }
+  } catch (e: any) {
+    lastError = `初始化失败: 请检查 API Key 是否正确。(${e.message})`;
+    console.error(lastError);
   }
 }
 
 export const firebaseService = {
   isConfigured: () => !!db,
+  getLastError: () => lastError,
 
   saveConfig: (newConfig: any) => {
     localStorage.setItem(CONFIG_KEY, JSON.stringify(newConfig));
@@ -67,38 +71,57 @@ export const firebaseService = {
     window.location.reload();
   },
 
-  subscribeSessions: (callback: (data: any[]) => void) => {
+  subscribeSessions: (callback: (data: any[]) => void, onError?: (err: string) => void) => {
     if (!db) return () => {};
-    const q = query(collection(db, "sessions"), orderBy("date", "desc"));
-    return onSnapshot(q, (snapshot) => {
-      const sessions = snapshot.docs.map(doc => ({
-        ...doc.data(),
-        id: doc.id
-      }));
-      callback(sessions);
-    });
+    
+    try {
+      const q = query(collection(db, "sessions"), orderBy("date", "desc"));
+      return onSnapshot(q, (snapshot) => {
+        const sessions = snapshot.docs.map(doc => ({
+          ...doc.data(),
+          id: doc.id
+        }));
+        callback(sessions);
+      }, (error) => {
+        let msg = "";
+        if (error.code === 'permission-denied') {
+          msg = "权限不足：请在 Firebase 控制台将 Firestore 规则设置为测试模式，并开启匿名登录。";
+        } else if (error.code === 'not-found') {
+          msg = "数据库未就绪：请确保已在控制台点击了 'Create Database'。";
+        } else {
+          msg = `Firestore 错误: ${error.message}`;
+        }
+        console.error(msg);
+        if (onError) onError(msg);
+      });
+    } catch (e: any) {
+      console.error("Subscription Error:", e);
+      if (onError) onError(e.message);
+      return () => {};
+    }
   },
 
   subscribeLocations: (callback: (data: any[]) => void) => {
     if (!db) return () => {};
-    return onSnapshot(collection(db, "locations"), (snapshot) => {
-      const locations = snapshot.docs.map(doc => ({
-        ...doc.data(),
-        id: doc.id
-      }));
-      callback(locations);
-    });
+    try {
+      return onSnapshot(collection(db, "locations"), (snapshot) => {
+        const locations = snapshot.docs.map(doc => ({
+          ...doc.data(),
+          id: doc.id
+        }));
+        callback(locations);
+      }, (err) => {
+        console.warn("Locations sync error:", err.message);
+      });
+    } catch (e) {
+      return () => {};
+    }
   },
 
   addSession: async (session: any) => {
     if (!db) return;
     const { id, ...data } = session;
-    // We use id if provided (UUID from app), or let firestore generate
-    if (id) {
-      await setDoc(doc(db, "sessions", id), data);
-    } else {
-      await addDoc(collection(db, "sessions"), data);
-    }
+    await setDoc(doc(db, "sessions", id), data);
   },
 
   updateSession: async (id: string, data: any) => {
@@ -118,10 +141,5 @@ export const firebaseService = {
       const { id, ...data } = loc;
       await setDoc(doc(db, "locations", id), data);
     }
-  },
-
-  deleteLocation: async (id: string) => {
-    if (!db) return;
-    await deleteDoc(doc(db, "locations", id));
   }
 };

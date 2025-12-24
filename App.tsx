@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Plus, Calendar, Settings, BarChart3, Users, Clock, History, MapPin, LogOut, ShieldCheck, User as UserIcon, MapPinned, Cloud, CloudOff, Loader2, Info, ExternalLink, Database, Save, Trash2, Flame } from 'lucide-react';
+import { Plus, Calendar, Settings, BarChart3, Users, Clock, History, MapPin, LogOut, ShieldCheck, User as UserIcon, MapPinned, Cloud, CloudOff, Loader2, Info, ExternalLink, Database, Save, Trash2, Flame, AlertCircle } from 'lucide-react';
 import { Session, LocationConfig } from './types';
 import SessionCard from './components/SessionCard';
 import AdminModal from './components/AdminModal';
@@ -27,6 +27,7 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = React.useState(true);
   const [isOnline, setIsOnline] = React.useState(false);
   const [showConfigGuide, setShowConfigGuide] = React.useState(false);
+  const [syncError, setSyncError] = React.useState<string | null>(null);
 
   const [fbConfig, setFbConfig] = React.useState({
     apiKey: '',
@@ -59,10 +60,18 @@ const App: React.FC = () => {
       return;
     }
 
+    const initError = firebaseService.getLastError();
+    if (initError) setSyncError(initError);
+
     const unsubscribeSessions = firebaseService.subscribeSessions((data) => {
       setSessions(data);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
       setIsOnline(true);
+      setIsLoading(false);
+      setSyncError(null);
+    }, (err) => {
+      setSyncError(err);
+      setIsOnline(false);
       setIsLoading(false);
     });
 
@@ -105,7 +114,7 @@ const App: React.FC = () => {
   };
 
   const updateSession = async (id: string, updated: Partial<Session>) => {
-    if (firebaseService.isConfigured()) {
+    if (firebaseService.isConfigured() && isOnline) {
       try {
         setIsSyncing(true);
         await firebaseService.updateSession(id, updated);
@@ -128,7 +137,7 @@ const App: React.FC = () => {
       participants: [],
     };
     setIsModalOpen(false);
-    if (firebaseService.isConfigured()) {
+    if (firebaseService.isConfigured() && isOnline) {
       try {
         setIsSyncing(true);
         await firebaseService.addSession(newSession);
@@ -142,7 +151,7 @@ const App: React.FC = () => {
 
   const deleteSession = async (id: string) => {
     if (isAdmin && window.confirm('确定要删除吗？')) {
-      if (firebaseService.isConfigured()) {
+      if (firebaseService.isConfigured() && isOnline) {
         try {
           setIsSyncing(true);
           await firebaseService.deleteSession(id);
@@ -156,7 +165,7 @@ const App: React.FC = () => {
   };
 
   const saveLocations = async (newLocs: LocationConfig[]) => {
-    if (firebaseService.isConfigured()) {
+    if (firebaseService.isConfigured() && isOnline) {
       try {
         setIsSyncing(true);
         await firebaseService.saveLocations(newLocs);
@@ -204,7 +213,9 @@ const App: React.FC = () => {
               onClick={() => setShowConfigGuide(!showConfigGuide)}
             >
               {isSyncing ? <Loader2 size={12} className="animate-spin" /> : isOnline ? <Cloud size={14} /> : <CloudOff size={14} />}
-              <span style={{ fontSize: '0.7rem' }} className="fw-black">{isOnline ? 'Firebase 已同步' : '本地模式 (点击配置)'}</span>
+              <span style={{ fontSize: '0.7rem' }} className="fw-black">
+                {syncError ? '同步错误' : isOnline ? 'Firebase 已同步' : '本地模式'}
+              </span>
             </button>
           </div>
           
@@ -236,6 +247,21 @@ const App: React.FC = () => {
               <button className="btn-close btn-close-white" onClick={() => setShowConfigGuide(false)}></button>
             </div>
             <div className="card-body p-4 bg-white">
+              {syncError && (
+                <div className="alert alert-danger border-0 rounded-3 d-flex align-items-start gap-3 p-3 mb-4">
+                  <AlertCircle size={20} className="mt-1 flex-shrink-0" />
+                  <div className="small">
+                    <p className="fw-black mb-1">连接中断</p>
+                    <p className="mb-0 opacity-75">{syncError}</p>
+                    <div className="mt-2 pt-2 border-top border-danger border-opacity-10">
+                      请前往 Firebase 控制台确认：<br/>
+                      1. <b>Build > Authentication</b> 已开启 <b>Anonymous</b> 登录方式。<br/>
+                      2. <b>Build > Firestore Database</b> 已点击 <b>Create Database</b>。<br/>
+                      3. <b>Rules</b> 允许匿名读写。
+                    </div>
+                  </div>
+                </div>
+              )}
               <form onSubmit={handleSaveConfig}>
                 <div className="row g-3">
                   <div className="col-md-6">

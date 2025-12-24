@@ -65,20 +65,29 @@ if (config && config.apiKey && config.projectId) {
     };
 
     const app = !getApps().length ? initializeApp(cleanConfig) : getApp();
-    db = getFirestore(app);
-    auth = getAuth(app);
     
-    enableNetwork(db).catch(() => {});
-    
-    if (auth) {
-      signInAnonymously(auth).catch((err: any) => {
-        lastError = `身份认证失败: ${err.message}`;
-        console.error(lastError);
+    // 确保在尝试获取 Firestore 之前 App 已初始化
+    try {
+      db = getFirestore(app);
+      auth = getAuth(app);
+      
+      enableNetwork(db).catch((err) => {
+        console.warn("Firestore Network enable warning:", err);
       });
+      
+      if (auth) {
+        signInAnonymously(auth).catch((err: any) => {
+          lastError = `身份认证失败: ${err.message}`;
+          console.error(lastError);
+        });
+      }
+    } catch (fsError: any) {
+      lastError = `Firestore 加载失败: ${fsError.message}`;
+      console.error("Firestore Init Error:", fsError);
     }
   } catch (e: any) {
-    lastError = `Firebase 初始化错误: ${e.message}`;
-    console.error("Firebase Init Error:", e);
+    lastError = `Firebase App 初始化错误: ${e.message}`;
+    console.error("Firebase App Init Error:", e);
   }
 }
 

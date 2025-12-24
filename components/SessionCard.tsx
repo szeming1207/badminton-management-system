@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Users, MapPin, X, Trash2, UserPlus, Save, Edit3, Clock, ChevronDown, ChevronUp, CheckCircle2, AlertCircle, Edit2, Check, DollarSign } from 'lucide-react';
+import { Users, MapPin, X, Trash2, UserPlus, Save, Edit3, Clock, ChevronDown, ChevronUp, CheckCircle2, AlertCircle, Edit2, Check, DollarSign, Calendar as CalendarIcon } from 'lucide-react';
 import { Session, LocationConfig } from '../types';
 
 interface SessionCardProps {
@@ -29,6 +29,8 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
     }
   }, [session.courtFee, session.shuttleQty, session.shuttlePrice, isEditingCosts]);
 
+  // 编辑详情状态
+  const [editDate, setEditDate] = React.useState(session.date);
   const [editStartTime, setEditStartTime] = React.useState(session.time.split(' - ')[0] || '19:00');
   const [editEndTime, setEditEndTime] = React.useState(session.time.split(' - ')[1] || '21:00');
   const [editCourtCount, setEditCourtCount] = React.useState(session.courtCount);
@@ -74,18 +76,17 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
   };
 
   const handleUpdateDetails = () => {
-    // 自动重新计算场地费
     let newCourtFee = session.courtFee;
     const config = locations.find(l => l.name === session.location);
     if (config) {
       newCourtFee = Number(config.defaultCourtFee) * editCourtCount;
     } else {
-      // 如果没找到配置，按原有的单价比例计算
       const oldRate = session.courtFee / (session.courtCount || 1);
       newCourtFee = oldRate * editCourtCount;
     }
 
     onUpdate({ 
+      date: editDate,
       time: `${editStartTime} - ${editEndTime}`,
       courtCount: editCourtCount,
       courtFee: newCourtFee
@@ -118,12 +119,18 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
       <div className="card-header border-0 bg-light p-4">
         <div className="d-flex justify-content-between align-items-start">
           <div className="flex-grow-1">
-            <h4 className="fw-black text-dark mb-2">
-              {new Date(session.date).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', weekday: 'short' })}
-            </h4>
-            
             {isEditingDetails ? (
               <div className="vstack gap-2 mt-2">
+                <div className="d-flex align-items-center gap-2">
+                  <CalendarIcon size={14} className="text-success" />
+                  <input 
+                    type="date"
+                    value={editDate}
+                    onChange={(e) => setEditDate(e.target.value)}
+                    className="form-control form-control-sm fw-bold rounded-2"
+                    style={{ width: '160px' }}
+                  />
+                </div>
                 <div className="d-flex align-items-center gap-2">
                   <Clock size={14} className="text-success" />
                   <select 
@@ -161,6 +168,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
                   </button>
                   <button onClick={() => {
                     setIsEditingDetails(false);
+                    setEditDate(session.date);
                     setEditStartTime(session.time.split(' - ')[0]);
                     setEditEndTime(session.time.split(' - ')[1]);
                     setEditCourtCount(session.courtCount);
@@ -170,27 +178,32 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
                 </div>
               </div>
             ) : (
-              <div className="d-flex flex-wrap align-items-center gap-3">
-                <span className="badge bg-success bg-opacity-10 text-success rounded-pill px-3 py-2 d-flex align-items-center gap-1 border border-success border-opacity-25">
-                  <Clock size={14} />
-                  <span className="fw-bold">{session.time}</span>
-                </span>
-                <div className="d-flex align-items-center gap-1 small fw-bold text-muted">
-                  <MapPin size={14} className="text-danger" />
-                  <span className="text-truncate" style={{ maxWidth: '120px' }}>{session.location}</span>
-                  <span className="text-muted opacity-25 mx-1">/</span>
-                  <span>{session.courtCount} 场地</span>
+              <>
+                <h4 className="fw-black text-dark mb-2">
+                  {new Date(session.date).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', weekday: 'short' })}
+                </h4>
+                <div className="d-flex flex-wrap align-items-center gap-3">
+                  <span className="badge bg-success bg-opacity-10 text-success rounded-pill px-3 py-2 d-flex align-items-center gap-1 border border-success border-opacity-25">
+                    <Clock size={14} />
+                    <span className="fw-bold">{session.time}</span>
+                  </span>
+                  <div className="d-flex align-items-center gap-1 small fw-bold text-muted">
+                    <MapPin size={14} className="text-danger" />
+                    <span className="text-truncate" style={{ maxWidth: '120px' }}>{session.location}</span>
+                    <span className="text-muted opacity-25 mx-1">/</span>
+                    <span>{session.courtCount} 场地</span>
+                  </div>
+                  {isAdmin && (
+                    <button 
+                      onClick={() => setIsEditingDetails(true)} 
+                      className="btn btn-link text-success p-1 rounded-circle hover-bg-light"
+                      title="编辑时间、日期及场地数量"
+                    >
+                      <Edit2 size={14} />
+                    </button>
+                  )}
                 </div>
-                {isAdmin && (
-                  <button 
-                    onClick={() => setIsEditingDetails(true)} 
-                    className="btn btn-link text-success p-1 rounded-circle hover-bg-light"
-                    title="编辑时间及场地数量 (场地费会自动更新)"
-                  >
-                    <Edit2 size={14} />
-                  </button>
-                )}
-              </div>
+              </>
             )}
           </div>
           

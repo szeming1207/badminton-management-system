@@ -41,8 +41,9 @@ const App: React.FC = () => {
   const isAdmin = userRole === 'admin';
 
   React.useEffect(() => {
-    const savedRole = localStorage.getItem(AUTH_KEY) as 'admin' | 'user' | null;
-    if (savedRole) handleLogin(savedRole);
+    // 强制不从本地存储自动恢复角色，实现“强制登录”
+    // const savedRole = localStorage.getItem(AUTH_KEY) as 'admin' | 'user' | null;
+    // if (savedRole) handleLogin(savedRole);
 
     const savedSessions = localStorage.getItem(STORAGE_KEY);
     const savedLocations = localStorage.getItem(LOCATIONS_KEY);

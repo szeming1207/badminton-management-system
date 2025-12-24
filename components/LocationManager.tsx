@@ -1,6 +1,6 @@
 
-import React, { useState, useRef } from 'react';
-import { Plus, Trash2, MapPin, Download, Upload, MapPinned, Edit2, Check, Database, ShieldAlert, RotateCcw } from 'lucide-react';
+import React from 'react';
+import { Plus, Trash2, MapPin, Download, Upload, MapPinned, Edit2, Check, Database, ShieldAlert, RotateCcw, X } from 'lucide-react';
 import { LocationConfig } from '../types';
 
 interface LocationManagerProps {
@@ -9,12 +9,12 @@ interface LocationManagerProps {
 }
 
 const LocationManager: React.FC<LocationManagerProps> = ({ locations, onUpdateLocations }) => {
-  const [newName, setNewName] = useState('');
-  const [newFee, setNewFee] = useState(20);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editName, setEditName] = useState('');
-  const [editFee, setEditFee] = useState(0);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [newName, setNewName] = React.useState('');
+  const [newFee, setNewFee] = React.useState(20);
+  const [editingId, setEditingId] = React.useState<string | null>(null);
+  const [editName, setEditName] = React.useState('');
+  const [editFee, setEditFee] = React.useState(0);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,9 +127,32 @@ const LocationManager: React.FC<LocationManagerProps> = ({ locations, onUpdateLo
             <div key={loc.id} className="col-md-6">
               <div className="card border bg-white rounded-3 shadow-sm p-4 h-100 hover-border-success transition-all">
                 {editingId === loc.id ? (
-                  <div className="d-flex gap-2">
-                    <input value={editName} onChange={e => setEditName(e.target.value)} className="form-control fw-bold" />
-                    <button onClick={() => saveEditing(loc.id)} className="btn btn-success px-3"><Check size={20} /></button>
+                  <div className="vstack gap-2">
+                    <div className="d-flex gap-2">
+                      <div className="input-group">
+                         <span className="input-group-text bg-light border-0 small fw-bold">场地</span>
+                         <input 
+                           value={editName} 
+                           onChange={e => setEditName(e.target.value)} 
+                           className="form-control fw-bold border-0 bg-light" 
+                           placeholder="输入场地名称"
+                         />
+                      </div>
+                    </div>
+                    <div className="d-flex gap-2">
+                      <div className="input-group">
+                         <span className="input-group-text bg-light border-0 small fw-bold">RM</span>
+                         <input 
+                           type="number"
+                           value={editFee} 
+                           onChange={e => setEditFee(parseFloat(e.target.value) || 0)} 
+                           className="form-control fw-bold border-0 bg-light" 
+                           placeholder="单价"
+                         />
+                      </div>
+                      <button onClick={() => saveEditing(loc.id)} className="btn btn-success px-3" title="确认修改"><Check size={20} /></button>
+                      <button onClick={() => setEditingId(null)} className="btn btn-light border px-3" title="取消"><X size={20} /></button>
+                    </div>
                   </div>
                 ) : (
                   <div className="d-flex justify-content-between align-items-center">
@@ -137,12 +160,12 @@ const LocationManager: React.FC<LocationManagerProps> = ({ locations, onUpdateLo
                       <MapPin size={24} className="text-muted opacity-25" />
                       <div>
                         <p className="fw-black text-dark mb-0">{loc.name}</p>
-                        <p className="small text-success fw-black mb-0">RM {loc.defaultCourtFee}</p>
+                        <p className="small text-success fw-black mb-0">单价 RM {loc.defaultCourtFee}</p>
                       </div>
                     </div>
                     <div className="btn-group">
-                      <button onClick={() => { setEditingId(loc.id); setEditName(loc.name); setEditFee(loc.defaultCourtFee); }} className="btn btn-link text-muted p-2 hover-primary"><Edit2 size={18} /></button>
-                      <button onClick={() => handleRemove(loc.id)} className="btn btn-link text-muted p-2 hover-danger"><Trash2 size={18} /></button>
+                      <button onClick={() => { setEditingId(loc.id); setEditName(loc.name); setEditFee(loc.defaultCourtFee); }} className="btn btn-link text-muted p-2 hover-primary" title="编辑场地"><Edit2 size={18} /></button>
+                      <button onClick={() => handleRemove(loc.id)} className="btn btn-link text-muted p-2 hover-danger" title="删除场地"><Trash2 size={18} /></button>
                     </div>
                   </div>
                 )}
@@ -199,10 +222,6 @@ const LocationManager: React.FC<LocationManagerProps> = ({ locations, onUpdateLo
            </p>
         </div>
       </div>
-      <style>{`
-        .hover-border-success:hover { border-color: #10b981 !important; transform: translateY(-3px); }
-        .hover-primary:hover { color: #3b82f6 !important; }
-      `}</style>
     </div>
   );
 };

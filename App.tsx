@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Calendar, Settings, BarChart3, Users, Clock, History, MapPin, LogOut, ShieldCheck, User as UserIcon, MapPinned, Cloud, CloudOff, Loader2, Info, ExternalLink, Database, Save, Trash2 } from 'lucide-react';
+import React from 'react';
+import { Plus, Calendar, Settings, BarChart3, Users, Clock, History, MapPin, LogOut, ShieldCheck, User as UserIcon, MapPinned, Cloud, CloudOff, Loader2, Info, ExternalLink, Database, Save, Trash2, Flame } from 'lucide-react';
 import { Session, LocationConfig } from './types';
 import SessionCard from './components/SessionCard';
 import AdminModal from './components/AdminModal';
@@ -8,36 +8,38 @@ import AnalyticsSection from './components/AnalyticsSection';
 import SmartAdvisor from './components/SmartAdvisor';
 import LoginPage from './components/LoginPage';
 import LocationManager from './components/LocationManager';
-import { mongodbService } from './services/mongodb';
+import { firebaseService } from './services/firebase';
 
 const STORAGE_KEY = 'badminton_hub_sessions';
 const LOCATIONS_KEY = 'badminton_hub_locations';
 const AUTH_KEY = 'badminton_hub_auth_role';
 
 const App: React.FC = () => {
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [locations, setLocations] = useState<LocationConfig[]>([
+  const [sessions, setSessions] = React.useState<Session[]>([]);
+  const [locations, setLocations] = React.useState<LocationConfig[]>([
     { id: '1', name: 'SRC', defaultCourtFee: 20 },
     { id: '2', name: 'Perfect Win', defaultCourtFee: 30 }
   ]);
-  const [userRole, setUserRole] = useState<'admin' | 'user' | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'sessions' | 'analytics' | 'settings'>('sessions');
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isOnline, setIsOnline] = useState(false);
-  const [showConfigGuide, setShowConfigGuide] = useState(false);
+  const [userRole, setUserRole] = React.useState<'admin' | 'user' | null>(null);
+  const [isModalOpen, setIsModalOpen] = React.useState(false);
+  const [activeTab, setActiveTab] = React.useState<'sessions' | 'analytics' | 'settings'>('sessions');
+  const [isSyncing, setIsSyncing] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [isOnline, setIsOnline] = React.useState(false);
+  const [showConfigGuide, setShowConfigGuide] = React.useState(false);
 
-  // MongoDB Config Form State
-  const [mgConfig, setMgConfig] = useState({
-    appId: '',
-    dbName: 'badminton',
-    dataSource: 'mongodb-atlas'
+  const [fbConfig, setFbConfig] = React.useState({
+    apiKey: '',
+    authDomain: '',
+    projectId: '',
+    storageBucket: '',
+    messagingSenderId: '',
+    appId: ''
   });
 
   const isAdmin = userRole === 'admin';
 
-  useEffect(() => {
+  React.useEffect(() => {
     const savedRole = localStorage.getItem(AUTH_KEY) as 'admin' | 'user' | null;
     if (savedRole) setUserRole(savedRole);
 
@@ -46,25 +48,25 @@ const App: React.FC = () => {
     if (savedSessions) try { setSessions(JSON.parse(savedSessions)); } catch (e) {}
     if (savedLocations) try { setLocations(JSON.parse(savedLocations)); } catch (e) {}
 
-    const savedMgConfig = localStorage.getItem('sbg_mongodb_config');
-    if (savedMgConfig) {
-      try { setMgConfig(JSON.parse(savedMgConfig)); } catch (e) {}
+    const savedFbConfig = localStorage.getItem('sbg_firebase_config');
+    if (savedFbConfig) {
+      try { setFbConfig(JSON.parse(savedFbConfig)); } catch (e) {}
     }
 
-    if (!mongodbService.isConfigured()) {
+    if (!firebaseService.isConfigured()) {
       setIsLoading(false);
       setIsOnline(false);
       return;
     }
 
-    const unsubscribeSessions = mongodbService.subscribeSessions((data) => {
+    const unsubscribeSessions = firebaseService.subscribeSessions((data) => {
       setSessions(data);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
       setIsOnline(true);
       setIsLoading(false);
     });
 
-    const unsubscribeLocations = mongodbService.subscribeLocations((data) => {
+    const unsubscribeLocations = firebaseService.subscribeLocations((data) => {
       if (data.length > 0) {
         setLocations(data);
         localStorage.setItem(LOCATIONS_KEY, JSON.stringify(data));
@@ -89,26 +91,26 @@ const App: React.FC = () => {
 
   const handleSaveConfig = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!mgConfig.appId) {
-      alert("请输入 Atlas App ID");
+    if (!fbConfig.apiKey || !fbConfig.projectId) {
+      alert("请输入至少 API Key 和 Project ID");
       return;
     }
-    mongodbService.saveConfig(mgConfig);
+    firebaseService.saveConfig(fbConfig);
   };
 
   const handleClearConfig = () => {
-    if (window.confirm("确定要清除配置并切换回本地模式吗？")) {
-      mongodbService.clearConfig();
+    if (window.confirm("确定要清除 Firebase 配置并切换回本地模式吗？")) {
+      firebaseService.clearConfig();
     }
   };
 
   const updateSession = async (id: string, updated: Partial<Session>) => {
-    if (mongodbService.isConfigured()) {
+    if (firebaseService.isConfigured()) {
       try {
         setIsSyncing(true);
-        await mongodbService.updateSession(id, updated);
+        await firebaseService.updateSession(id, updated);
       } catch (err) {
-        console.error("MongoDB Update Error:", err);
+        console.error("Firebase Update Error:", err);
       } finally {
         setIsSyncing(false);
       }
@@ -126,10 +128,10 @@ const App: React.FC = () => {
       participants: [],
     };
     setIsModalOpen(false);
-    if (mongodbService.isConfigured()) {
+    if (firebaseService.isConfigured()) {
       try {
         setIsSyncing(true);
-        await mongodbService.addSession(newSession);
+        await firebaseService.addSession(newSession);
       } catch (err) { console.error(err); } finally { setIsSyncing(false); }
     } else {
       const updated = [newSession, ...sessions];
@@ -140,10 +142,10 @@ const App: React.FC = () => {
 
   const deleteSession = async (id: string) => {
     if (isAdmin && window.confirm('确定要删除吗？')) {
-      if (mongodbService.isConfigured()) {
+      if (firebaseService.isConfigured()) {
         try {
           setIsSyncing(true);
-          await mongodbService.deleteSession(id);
+          await firebaseService.deleteSession(id);
         } catch (err) { console.error(err); } finally { setIsSyncing(false); }
       } else {
         const updated = sessions.filter(s => s.id !== id);
@@ -154,10 +156,10 @@ const App: React.FC = () => {
   };
 
   const saveLocations = async (newLocs: LocationConfig[]) => {
-    if (mongodbService.isConfigured()) {
+    if (firebaseService.isConfigured()) {
       try {
         setIsSyncing(true);
-        await mongodbService.saveLocations(newLocs);
+        await firebaseService.saveLocations(newLocs);
       } catch (err) { console.error(err); } finally { setIsSyncing(false); }
     } else {
       setLocations(newLocs);
@@ -173,11 +175,13 @@ const App: React.FC = () => {
     } catch (e) { return true; }
   };
 
-  const { activeSessions } = useMemo(() => ({
-    activeSessions: [...sessions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).filter(isSessionActive)
-  }), [sessions]);
+  const activeSessions = React.useMemo(() => (
+    [...sessions]
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .filter(isSessionActive)
+  ), [sessions]);
 
-  const frequentParticipants = useMemo(() => {
+  const frequentParticipants = React.useMemo(() => {
     const names = new Set<string>();
     sessions.forEach(s => s.participants.forEach(p => names.add(p)));
     return Array.from(names).sort();
@@ -200,7 +204,7 @@ const App: React.FC = () => {
               onClick={() => setShowConfigGuide(!showConfigGuide)}
             >
               {isSyncing ? <Loader2 size={12} className="animate-spin" /> : isOnline ? <Cloud size={14} /> : <CloudOff size={14} />}
-              <span style={{ fontSize: '0.7rem' }} className="fw-black">{isOnline ? 'MongoDB 已连接' : '本地模式 (点击配置)'}</span>
+              <span style={{ fontSize: '0.7rem' }} className="fw-black">{isOnline ? 'Firebase 已同步' : '本地模式 (点击配置)'}</span>
             </button>
           </div>
           
@@ -226,8 +230,8 @@ const App: React.FC = () => {
           <div className="card border-0 shadow-lg rounded-4 overflow-hidden mb-4 animate-in slide-in-from-top duration-300">
             <div className="card-header bg-dark text-white p-4 d-flex justify-content-between align-items-center">
               <div className="d-flex align-items-center gap-2">
-                <Database size={20} className="text-success" />
-                <h6 className="fw-black mb-0 text-uppercase tracking-wider">MongoDB Atlas 连接中心</h6>
+                <Flame size={20} className="text-warning" />
+                <h6 className="fw-black mb-0 text-uppercase tracking-wider">Firebase 连接中心</h6>
               </div>
               <button className="btn-close btn-close-white" onClick={() => setShowConfigGuide(false)}></button>
             </div>
@@ -235,44 +239,30 @@ const App: React.FC = () => {
               <form onSubmit={handleSaveConfig}>
                 <div className="row g-3">
                   <div className="col-md-6">
-                    <p className="small text-muted mb-3 fw-bold">请从 Atlas App Services 复制 App ID：</p>
                     <div className="vstack gap-2">
                       <div>
-                        <label className="x-small fw-black text-muted text-uppercase mb-1" style={{ fontSize: '0.65rem' }}>App ID</label>
-                        <input 
-                          type="text" 
-                          className="form-control form-control-sm" 
-                          placeholder="application-0-xxxx" 
-                          value={mgConfig.appId}
-                          onChange={e => setMgConfig({...mgConfig, appId: e.target.value})}
-                        />
+                        <label className="x-small fw-black text-muted text-uppercase mb-1" style={{ fontSize: '0.65rem' }}>Firebase API Key</label>
+                        <input type="text" className="form-control form-control-sm" placeholder="AIzaSy..." value={fbConfig.apiKey} onChange={e => setFbConfig({...fbConfig, apiKey: e.target.value})} />
                       </div>
                       <div>
-                        <label className="x-small fw-black text-muted text-uppercase mb-1" style={{ fontSize: '0.65rem' }}>数据库名称</label>
-                        <input 
-                          type="text" 
-                          className="form-control form-control-sm" 
-                          value={mgConfig.dbName}
-                          onChange={e => setMgConfig({...mgConfig, dbName: e.target.value})}
-                        />
+                        <label className="x-small fw-black text-muted text-uppercase mb-1" style={{ fontSize: '0.65rem' }}>Project ID</label>
+                        <input type="text" className="form-control form-control-sm" placeholder="my-project-id" value={fbConfig.projectId} onChange={e => setFbConfig({...fbConfig, projectId: e.target.value})} />
+                      </div>
+                      <div>
+                        <label className="x-small fw-black text-muted text-uppercase mb-1" style={{ fontSize: '0.65rem' }}>Auth Domain</label>
+                        <input type="text" className="form-control form-control-sm" placeholder="project.firebaseapp.com" value={fbConfig.authDomain} onChange={e => setFbConfig({...fbConfig, authDomain: e.target.value})} />
                       </div>
                     </div>
                   </div>
                   <div className="col-md-6 border-start border-light ps-md-4">
-                    <p className="small text-muted mb-3 fw-bold">集群设置：</p>
-                    <div>
-                      <label className="x-small fw-black text-muted text-uppercase mb-1" style={{ fontSize: '0.65rem' }}>Data Source (服务名)</label>
-                      <input 
-                        type="text" 
-                        className="form-control form-control-sm" 
-                        value={mgConfig.dataSource}
-                        onChange={e => setMgConfig({...mgConfig, dataSource: e.target.value})}
-                      />
+                    <p className="small text-muted mb-3 fw-bold">额外参数 (可选)：</p>
+                    <div className="vstack gap-2">
+                      <input type="text" className="form-control form-control-sm" placeholder="App ID" value={fbConfig.appId} onChange={e => setFbConfig({...fbConfig, appId: e.target.value})} />
+                      <input type="text" className="form-control form-control-sm" placeholder="Storage Bucket" value={fbConfig.storageBucket} onChange={e => setFbConfig({...fbConfig, storageBucket: e.target.value})} />
                     </div>
-                    
                     <div className="mt-4 d-flex gap-2">
                       <button type="submit" className="btn btn-success btn-sm flex-grow-1 fw-black d-flex align-items-center justify-content-center gap-2">
-                        <Save size={14} /> 保存并连接
+                        <Save size={14} /> 保存配置
                       </button>
                       <button type="button" onClick={handleClearConfig} className="btn btn-outline-danger btn-sm fw-black">
                         <Trash2 size={14} /> 切换本地
@@ -290,10 +280,7 @@ const App: React.FC = () => {
             {['sessions', 'analytics', 'settings'].map(tab => (
               (tab !== 'settings' || isAdmin) && (
                 <li key={tab} className="nav-item">
-                  <button 
-                    onClick={() => setActiveTab(tab as any)} 
-                    className={`nav-link rounded-3 px-4 fw-bold text-capitalize ${activeTab === tab ? 'active' : ''}`}
-                  >
+                  <button onClick={() => setActiveTab(tab as any)} className={`nav-link rounded-3 px-4 fw-bold text-capitalize ${activeTab === tab ? 'active' : ''}`}>
                     {tab === 'sessions' ? '场次预定' : tab === 'analytics' ? '数据统计' : '场地管理'}
                   </button>
                 </li>
@@ -316,31 +303,13 @@ const App: React.FC = () => {
               ) : (
                 <div className="vstack gap-4">
                   {activeSessions.map(s => (
-                    <SessionCard 
-                      key={s.id} 
-                      session={s} 
-                      isAdmin={isAdmin} 
-                      frequentParticipants={frequentParticipants} 
-                      onUpdate={(u) => updateSession(s.id, u)} 
-                      onDelete={() => deleteSession(s.id)} 
-                    />
+                    <SessionCard key={s.id} session={s} isAdmin={isAdmin} locations={locations} frequentParticipants={frequentParticipants} onUpdate={(u) => updateSession(s.id, u)} onDelete={() => deleteSession(s.id)} />
                   ))}
                 </div>
               )}
             </div>
             <div className="col-lg-4">
               <SmartAdvisor sessions={sessions} />
-              <div className="card border-0 shadow-soft rounded-4 p-4 mt-4 bg-white">
-                <h6 className="fw-black mb-3 small text-uppercase text-muted tracking-widest">场地参考</h6>
-                <div className="vstack gap-2">
-                  {locations.map(loc => (
-                    <div key={loc.id} className="d-flex justify-content-between p-2 border-bottom">
-                      <span className="small fw-bold">{loc.name}</span>
-                      <span className="small fw-black text-success">RM {loc.defaultCourtFee}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
             </div>
           </div>
         )}
@@ -350,15 +319,6 @@ const App: React.FC = () => {
       </main>
 
       <AdminModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={addSession} locations={locations} />
-      
-      <style>{`
-        .animate-spin { animation: spin 1s linear infinite; }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .family-monospace { font-family: monospace; }
-        .animate-in { animation: enter 0.3s ease-out; }
-        @keyframes enter { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-        .x-small { font-size: 0.65rem; }
-      `}</style>
     </div>
   );
 };

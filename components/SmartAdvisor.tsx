@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Sparkles, Loader2, RefreshCw } from 'lucide-react';
 import { getSessionAdvice } from '../services/gemini';
 import { Session } from '../types';
@@ -9,8 +9,8 @@ interface SmartAdvisorProps {
 }
 
 const SmartAdvisor: React.FC<SmartAdvisorProps> = ({ sessions }) => {
-  const [advice, setAdvice] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [advice, setAdvice] = React.useState<string | null>(null);
+  const [loading, setLoading] = React.useState(false);
 
   const totalParticipantsHash = sessions.map(s => s.participants.length).join('-');
 
@@ -30,7 +30,7 @@ const SmartAdvisor: React.FC<SmartAdvisorProps> = ({ sessions }) => {
     setLoading(false);
   };
 
-  useEffect(() => {
+  React.useEffect(() => {
     fetchAdvice();
   }, [sessions.length, totalParticipantsHash]);
 
@@ -45,8 +45,7 @@ const SmartAdvisor: React.FC<SmartAdvisorProps> = ({ sessions }) => {
           <button 
             onClick={fetchAdvice} 
             disabled={loading}
-            className="btn btn-link text-white text-opacity-50 p-1 hover-white transition-all"
-            title="手动刷新建议"
+            className="btn btn-link text-white text-opacity-50 p-1 hover-white transition-all border-0"
           >
             {loading ? <Loader2 size={18} className="animate-spin" /> : <RefreshCw size={18} />}
           </button>
@@ -69,20 +68,11 @@ const SmartAdvisor: React.FC<SmartAdvisorProps> = ({ sessions }) => {
         
         <div className="mt-4 pt-4 border-top border-white border-opacity-10 d-flex align-items-center justify-content-between">
           <small className="text-uppercase fw-black opacity-50 tracking-widest" style={{ fontSize: '0.6rem' }}>Badminton Insights</small>
-          <div className="d-flex gap-1">
-            <div className="dot animate-pulse"></div>
-            <div className="dot animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-            <div className="dot animate-pulse" style={{ animationDelay: '0.4s' }}></div>
-          </div>
         </div>
       </div>
       <style>{`
         .hover-white:hover { color: white !important; transform: rotate(180deg); }
-        .dot { width: 6px; height: 6px; background: #a7f3d0; border-radius: 50%; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-        .animate-pulse { animation: pulse 1.5s infinite ease-in-out; }
         .prose-sm { color: white !important; font-weight: 500; }
-        .prose-sm li { color: white !important; }
       `}</style>
     </div>
   );

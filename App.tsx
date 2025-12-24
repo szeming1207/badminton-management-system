@@ -266,17 +266,16 @@ const App: React.FC = () => {
                     </div>
                   </div>
                   <div className="col-md-6 border-start border-light ps-md-4">
-                    <p className="small text-muted mb-3 fw-bold">额外参数 (可选)：</p>
-                    <div className="vstack gap-2">
-                      <input type="text" className="form-control form-control-sm" placeholder="App ID" value={fbConfig.appId} onChange={e => setFbConfig({...fbConfig, appId: e.target.value})} />
-                      <input type="text" className="form-control form-control-sm" placeholder="Storage Bucket" value={fbConfig.storageBucket} onChange={e => setFbConfig({...fbConfig, storageBucket: e.target.value})} />
-                    </div>
+                    <p className="small text-muted mb-3 fw-bold">配置说明：</p>
+                    <p className="small text-muted mb-4">
+                      为了让大家都能连接到数据库，请在 <b>services/firebase.ts</b> 文件中找到 <code>GLOBAL_CONFIG</code> 并填入您的配置。
+                    </p>
                     <div className="mt-4 d-flex gap-2">
                       <button type="submit" className="btn btn-success btn-sm flex-grow-1 fw-black d-flex align-items-center justify-content-center gap-2">
-                        <Save size={14} /> 保存配置
+                        <Save size={14} /> 保存到此浏览器
                       </button>
                       <button type="button" onClick={handleClearConfig} className="btn btn-outline-danger btn-sm fw-black">
-                        <Trash2 size={14} /> 切换本地
+                        <Trash2 size={14} /> 恢复默认
                       </button>
                     </div>
                   </div>

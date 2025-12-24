@@ -16,7 +16,27 @@ import { getAuth, signInAnonymously } from "firebase/auth";
 
 const CONFIG_KEY = 'sbg_firebase_config';
 
+/**
+ * 【关键步骤】
+ * 请将你在网页表单中填写的 Firebase 配置粘贴到下面的 GLOBAL_CONFIG 中。
+ * 这样部署后，所有人打开网页都会自动连接，无需再次输入。
+ */
+const GLOBAL_CONFIG = {
+  apiKey: "AIzaSyDpjLq0-sP7U-YpgfFvZRpjpvq3TNj1Fdc", // 粘贴你的 apiKey
+  authDomain: "badminton-b513e.firebaseapp.com", // 粘贴你的 authDomain
+  projectId: "badminton-b513e", // 粘贴你的 projectId
+  storageBucket: "badminton-b513e.firebasestorage.app", // 粘贴你的 storageBucket
+  messagingSenderId: "504434789296", // 粘贴你的 messagingSenderId
+  appId: "1:504434789296:web:e1510b72b16af858bc6475" // 粘贴你的 appId
+};
+
 const getConfiguration = () => {
+  // 优先使用硬编码的全局配置
+  if (GLOBAL_CONFIG.apiKey && GLOBAL_CONFIG.projectId) {
+    return GLOBAL_CONFIG;
+  }
+  
+  // 备选：从 LocalStorage 读取（用于开发调试）
   const savedConfig = localStorage.getItem(CONFIG_KEY);
   if (savedConfig) {
     try {
@@ -35,7 +55,6 @@ let lastError: string | null = null;
 
 if (config && config.apiKey && config.projectId) {
   try {
-    // 自动清洗配置中的多余空格
     const cleanConfig = {
       apiKey: config.apiKey.trim(),
       authDomain: (config.authDomain || '').trim(),
@@ -53,26 +72,22 @@ if (config && config.apiKey && config.projectId) {
     
     if (auth) {
       signInAnonymously(auth).catch((err: any) => {
-        lastError = `身份认证失败: ${err.message} (请检查 Firebase 控制台是否开启了 Anonymous 登录)`;
+        lastError = `身份认证失败: ${err.message}`;
         console.error(lastError);
       });
     }
   } catch (e: any) {
-    if (e.message.includes('firestore is not available')) {
-      lastError = `数据库未激活: 请前往 Firebase 控制台点击 "Create Database" 开启 Firestore 服务。`;
-    } else {
-      lastError = `Firebase 初始化错误: ${e.message}`;
-    }
+    lastError = `Firebase 初始化错误: ${e.message}`;
     console.error("Firebase Init Error:", e);
   }
 }
 
 export const firebaseService = {
   isConfigured: () => !!db,
+  isGlobal: () => !!(GLOBAL_CONFIG.apiKey && GLOBAL_CONFIG.projectId),
   getLastError: () => lastError,
 
   saveConfig: (newConfig: any) => {
-    // 保存前先去空格
     const trimmedConfig = Object.keys(newConfig).reduce((acc: any, key) => {
       acc[key] = typeof newConfig[key] === 'string' ? newConfig[key].trim() : newConfig[key];
       return acc;
@@ -98,15 +113,7 @@ export const firebaseService = {
         }));
         callback(sessions);
       }, (error) => {
-        let msg = "";
-        if (error.code === 'permission-denied') {
-          msg = "权限不足：请在 Firebase 控制台将 Firestore 规则设置为测试模式。";
-        } else if (error.message.includes('firestore is not available')) {
-          msg = "Firestore 服务不可用：请确保已在控制台点击了 'Create Database'。";
-        } else {
-          msg = `数据库连接错误: ${error.message}`;
-        }
-        if (onError) onError(msg);
+        if (onError) onError(error.message);
       });
     } catch (e: any) {
       if (onError) onError(e.message);

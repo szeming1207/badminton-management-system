@@ -1,6 +1,5 @@
 
-// Fix: Use namespace imports for app and auth to resolve 'no exported member' errors in certain environments
-import * as firebaseApp from "firebase/app";
+import { initializeApp, getApp, getApps } from "firebase/app";
 import { 
   getFirestore, 
   collection, 
@@ -13,7 +12,7 @@ import {
   setDoc,
   enableNetwork
 } from "firebase/firestore";
-import * as firebaseAuth from "firebase/auth";
+import { getAuth, signInAnonymously } from "firebase/auth";
 
 const CONFIG_KEY = 'sbg_firebase_config';
 
@@ -34,26 +33,37 @@ let db: any = null;
 let auth: any = null;
 let lastError: string | null = null;
 
-// Initialize Firebase using the namespace-safe access patterns for modular SDK
 if (config && config.apiKey && config.projectId) {
   try {
-    const app = !firebaseApp.getApps().length ? firebaseApp.initializeApp(config) : firebaseApp.getApp();
+    // 自动清洗配置中的多余空格
+    const cleanConfig = {
+      apiKey: config.apiKey.trim(),
+      authDomain: (config.authDomain || '').trim(),
+      projectId: config.projectId.trim(),
+      storageBucket: (config.storageBucket || '').trim(),
+      messagingSenderId: (config.messagingSenderId || '').trim(),
+      appId: (config.appId || '').trim()
+    };
+
+    const app = !getApps().length ? initializeApp(cleanConfig) : getApp();
     db = getFirestore(app);
-    auth = firebaseAuth.getAuth(app);
+    auth = getAuth(app);
     
-    // Asynchronously attempt to enable network
     enableNetwork(db).catch(() => {});
     
-    // Execute anonymous login via the auth namespace
     if (auth) {
-      firebaseAuth.signInAnonymously(auth).catch((err: any) => {
-        lastError = `登录失败: 请在 Firebase 控制台开启 Anonymous 登录。(${err.code})`;
+      signInAnonymously(auth).catch((err: any) => {
+        lastError = `身份认证失败: ${err.message} (请检查 Firebase 控制台是否开启了 Anonymous 登录)`;
         console.error(lastError);
       });
     }
   } catch (e: any) {
-    lastError = `初始化失败: 请检查 API Key 是否正确。(${e.message})`;
-    console.error(lastError);
+    if (e.message.includes('firestore is not available')) {
+      lastError = `数据库未激活: 请前往 Firebase 控制台点击 "Create Database" 开启 Firestore 服务。`;
+    } else {
+      lastError = `Firebase 初始化错误: ${e.message}`;
+    }
+    console.error("Firebase Init Error:", e);
   }
 }
 
@@ -62,7 +72,12 @@ export const firebaseService = {
   getLastError: () => lastError,
 
   saveConfig: (newConfig: any) => {
-    localStorage.setItem(CONFIG_KEY, JSON.stringify(newConfig));
+    // 保存前先去空格
+    const trimmedConfig = Object.keys(newConfig).reduce((acc: any, key) => {
+      acc[key] = typeof newConfig[key] === 'string' ? newConfig[key].trim() : newConfig[key];
+      return acc;
+    }, {});
+    localStorage.setItem(CONFIG_KEY, JSON.stringify(trimmedConfig));
     window.location.reload();
   },
 
@@ -85,17 +100,15 @@ export const firebaseService = {
       }, (error) => {
         let msg = "";
         if (error.code === 'permission-denied') {
-          msg = "权限不足：请在 Firebase 控制台将 Firestore 规则设置为测试模式，并开启匿名登录。";
-        } else if (error.code === 'not-found') {
-          msg = "数据库未就绪：请确保已在控制台点击了 'Create Database'。";
+          msg = "权限不足：请在 Firebase 控制台将 Firestore 规则设置为测试模式。";
+        } else if (error.message.includes('firestore is not available')) {
+          msg = "Firestore 服务不可用：请确保已在控制台点击了 'Create Database'。";
         } else {
-          msg = `Firestore 错误: ${error.message}`;
+          msg = `数据库连接错误: ${error.message}`;
         }
-        console.error(msg);
         if (onError) onError(msg);
       });
     } catch (e: any) {
-      console.error("Subscription Error:", e);
       if (onError) onError(e.message);
       return () => {};
     }

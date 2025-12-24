@@ -42,7 +42,7 @@ const App: React.FC = () => {
 
   React.useEffect(() => {
     const savedRole = localStorage.getItem(AUTH_KEY) as 'admin' | 'user' | null;
-    if (savedRole) setUserRole(savedRole);
+    if (savedRole) handleLogin(savedRole);
 
     const savedSessions = localStorage.getItem(STORAGE_KEY);
     const savedLocations = localStorage.getItem(LOCATIONS_KEY);
@@ -255,8 +255,8 @@ const App: React.FC = () => {
                     <p className="mb-0 opacity-75">{syncError}</p>
                     <div className="mt-2 pt-2 border-top border-danger border-opacity-10">
                       请前往 Firebase 控制台确认：<br/>
-                      1. <b>Build > Authentication</b> 已开启 <b>Anonymous</b> 登录方式。<br/>
-                      2. <b>Build > Firestore Database</b> 已点击 <b>Create Database</b>。<br/>
+                      1. <b>Build &gt; Authentication</b> 已开启 <b>Anonymous</b> 登录方式。<br/>
+                      2. <b>Build &gt; Firestore Database</b> 已点击 <b>Create Database</b>。<br/>
                       3. <b>Rules</b> 允许匿名读写。
                     </div>
                   </div>

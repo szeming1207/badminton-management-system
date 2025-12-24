@@ -19,7 +19,6 @@ const App: React.FC = () => {
     { id: '1', name: 'SRC', defaultCourtFee: 20 },
     { id: '2', name: 'Perfect Win', defaultCourtFee: 30 }
   ]);
-  // 核心修改：userRole 始终初始化为 null，不从 localStorage 读取
   const [userRole, setUserRole] = React.useState<'admin' | 'user' | null>(null);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState<'sessions' | 'analytics' | 'settings'>('sessions');
@@ -41,7 +40,6 @@ const App: React.FC = () => {
   const isAdmin = userRole === 'admin';
 
   React.useEffect(() => {
-    // 加载本地缓存数据
     const savedSessions = localStorage.getItem(STORAGE_KEY);
     const savedLocations = localStorage.getItem(LOCATIONS_KEY);
     if (savedSessions) try { setSessions(JSON.parse(savedSessions)); } catch (e) {}
@@ -61,7 +59,6 @@ const App: React.FC = () => {
     const initError = firebaseService.getLastError();
     if (initError) setSyncError(initError);
 
-    // 订阅 Firebase 实时更新
     const unsubscribeSessions = firebaseService.subscribeSessions((data) => {
       setSessions(data);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -88,7 +85,6 @@ const App: React.FC = () => {
   }, []);
 
   const handleLogin = (role: 'admin' | 'user') => {
-    // 仅在内存中设置角色
     setUserRole(role);
   };
 
@@ -133,6 +129,7 @@ const App: React.FC = () => {
       ...sessionData,
       id: crypto.randomUUID(),
       participants: [],
+      deletionRequests: [], // 明确初始化为空
     };
     setIsModalOpen(false);
     if (firebaseService.isConfigured() && isOnline) {
@@ -148,7 +145,7 @@ const App: React.FC = () => {
   };
 
   const deleteSession = async (id: string) => {
-    if (isAdmin && window.confirm('确定要删除吗？')) {
+    if (isAdmin && window.confirm('确定要彻底删除这场活动吗？')) {
       if (firebaseService.isConfigured() && isOnline) {
         try {
           setIsSyncing(true);
@@ -194,7 +191,6 @@ const App: React.FC = () => {
     return Array.from(names).sort();
   }, [sessions]);
 
-  // 如果没有登录，强制显示登录页面
   if (!userRole) return <LoginPage onLogin={handleLogin} />;
 
   return (

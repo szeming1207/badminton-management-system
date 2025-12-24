@@ -9,6 +9,7 @@ export interface Session {
   shuttleQty: number;
   shuttlePrice: number;
   participants: string[];
+  deletionRequests?: string[]; // 新增：记录申请退出的名单
   maxParticipants: number;
 }
 

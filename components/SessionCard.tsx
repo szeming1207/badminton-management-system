@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Users, MapPin, X, Trash2, UserPlus, Save, Edit3, Clock, ChevronDown, ChevronUp, CheckCircle2, AlertCircle, Edit2, Check, DollarSign, Calendar as CalendarIcon } from 'lucide-react';
+import { Users, MapPin, X, Trash2, UserPlus, Save, Edit3, Clock, ChevronDown, ChevronUp, CheckCircle2, AlertCircle, Edit2, Check, DollarSign, Calendar as CalendarIcon, UserX, UserCheck, ShieldAlert } from 'lucide-react';
 import { Session, LocationConfig } from '../types';
 
 interface SessionCardProps {
@@ -29,7 +29,6 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
     }
   }, [session.courtFee, session.shuttleQty, session.shuttlePrice, isEditingCosts]);
 
-  // 编辑详情状态，包括日期
   const [editDate, setEditDate] = React.useState(session.date);
   const [editStartTime, setEditStartTime] = React.useState(session.time.split(' - ')[0] || '19:00');
   const [editEndTime, setEditEndTime] = React.useState(session.time.split(' - ')[1] || '21:00');
@@ -44,6 +43,11 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
   const maxParticipants = session.maxParticipants || 8;
   const isFull = participantCount >= maxParticipants;
   const costPerPerson = participantCount > 0 ? totalCost / participantCount : totalCost;
+
+  // 辅助函数：判断成员是否在申请删除名单中
+  const isPendingDeletion = (name: string) => {
+    return session.deletionRequests?.includes(name) || false;
+  };
 
   const handleAddName = (name: string) => {
     const trimmed = name.trim();
@@ -78,12 +82,9 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
   const handleUpdateDetails = () => {
     let newCourtFee = session.courtFee;
     const config = locations.find(l => l.name === session.location);
-    
-    // 如果找到了对应的场地配置，重新计算默认场地费
     if (config) {
       newCourtFee = Number(config.defaultCourtFee) * editCourtCount;
     } else {
-      // 否则根据当前费用比例缩放
       const oldRate = session.courtFee / (session.courtCount || 1);
       newCourtFee = oldRate * editCourtCount;
     }
@@ -97,10 +98,41 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
     setIsEditingDetails(false);
   };
 
-  const removeParticipant = (name: string) => {
-    const confirmMsg = isAdmin ? `确定要移除 "${name}" 吗？` : `确定要取消 "${name}" 的报名吗？`;
-    if (window.confirm(confirmMsg)) {
-      onUpdate({ participants: session.participants.filter(p => p !== name) });
+  // 核心修改：移除/申请移除逻辑
+  const handleRemoveClick = (name: string) => {
+    if (isAdmin) {
+      if (window.confirm(`管理员：确定直接移除 "${name}" 吗？`)) {
+        onUpdate({ 
+          participants: session.participants.filter(p => p !== name),
+          deletionRequests: (session.deletionRequests || []).filter(p => p !== name)
+        });
+      }
+    } else {
+      if (isPendingDeletion(name)) {
+        alert("该成员已提交退出申请，请等待管理员审批。");
+        return;
+      }
+      if (window.confirm(`确定要申请退出吗？申请后需等待管理员审批。`)) {
+        const currentRequests = session.deletionRequests || [];
+        onUpdate({ deletionRequests: [...currentRequests, name] });
+      }
+    }
+  };
+
+  const handleApproveDeletion = (name: string) => {
+    if (window.confirm(`审批通过：确认将 "${name}" 从名单中移除吗？`)) {
+      onUpdate({ 
+        participants: session.participants.filter(p => p !== name),
+        deletionRequests: (session.deletionRequests || []).filter(p => p !== name)
+      });
+    }
+  };
+
+  const handleRejectDeletion = (name: string) => {
+    if (window.confirm(`审批驳回：拒绝 "${name}" 的退出申请吗？`)) {
+      onUpdate({ 
+        deletionRequests: (session.deletionRequests || []).filter(p => p !== name)
+      });
     }
   };
 
@@ -207,7 +239,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
                     <button 
                       onClick={() => setIsEditingDetails(true)} 
                       className="btn btn-link text-success p-1 rounded-circle hover-bg-light"
-                      title="编辑日期、时间及场地数量"
+                      title="编辑详情"
                     >
                       <Edit2 size={14} />
                     </button>
@@ -233,7 +265,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
               <button 
                 onClick={() => setIsEditingCosts(!isEditingCosts)} 
                 className={`btn btn-sm p-1 rounded ${isEditingCosts ? 'btn-success bg-opacity-10' : 'text-muted hover-success'}`}
-                title="修改羽毛球费用"
+                title="修改费用"
               >
                 <Edit3 size={14} />
               </button>
@@ -244,7 +276,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
             {isEditingCosts ? (
               <div className="vstack gap-1 mt-2 p-2 bg-success bg-opacity-10 rounded-3">
                 <div className="d-flex align-items-center gap-2 mb-1">
-                  <small className="fw-black text-success" style={{ fontSize: '0.6rem' }}>场地费 (锁定)</small>
+                  <small className="fw-black text-success" style={{ fontSize: '0.6rem' }}>场地费</small>
                   <input 
                     type="number" 
                     readOnly
@@ -276,19 +308,14 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
                 </div>
                 <div className="d-flex gap-1 mt-2">
                   <button onClick={handleUpdateCosts} className="btn btn-success btn-sm w-100 py-0 fw-black shadow-sm" style={{ fontSize: '0.7rem' }}>保存</button>
-                  <button onClick={() => {
-                    setIsEditingCosts(false);
-                    setTempCourtFee(session.courtFee);
-                    setTempShuttleQty(session.shuttleQty);
-                    setTempShuttlePrice(session.shuttlePrice);
-                  }} className="btn btn-light btn-sm w-100 py-0 border" style={{ fontSize: '0.7rem' }}>取消</button>
+                  <button onClick={() => setIsEditingCosts(false)} className="btn btn-light btn-sm w-100 py-0 border" style={{ fontSize: '0.7rem' }}>取消</button>
                 </div>
               </div>
             ) : (
               <>
                 <small className="text-muted fw-bold" style={{ fontSize: '0.7rem' }}>场地: RM {session.courtFee.toFixed(2)}</small>
                 <small className="text-muted fw-bold" style={{ fontSize: '0.7rem' }}>
-                  羽毛球: {session.shuttleQty} x RM {session.shuttlePrice.toFixed(2)}
+                  用球: {session.shuttleQty} x RM {session.shuttlePrice.toFixed(2)}
                 </small>
               </>
             )}
@@ -330,25 +357,58 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
                   + {name}
                 </button>
               ))}
-              {frequentParticipants.length === 0 && <span className="small text-muted">暂无历史名单</span>}
+              {frequentParticipants.length === 0 && <span className="small text-muted">暂无常用名单</span>}
             </div>
           </div>
         )}
 
-        <div className="flex-grow-1 overflow-auto pe-1" style={{ minHeight: '120px', maxHeight: '200px' }}>
+        <div className="flex-grow-1 overflow-auto pe-1" style={{ minHeight: '120px', maxHeight: '250px' }}>
           {session.participants.length > 0 ? (
-            <div className="d-flex flex-wrap gap-2 align-content-start">
-              {session.participants.map(name => (
-                <div key={name} className="participant-chip d-flex align-items-center gap-2 bg-white border rounded-pill ps-3 pe-1 py-1 shadow-sm hover-success transition-all">
-                  <span className="small fw-bold">{name}</span>
-                  <button 
-                    onClick={() => removeParticipant(name)} 
-                    className="btn btn-link p-1 text-muted hover-danger border-0"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              ))}
+            <div className="vstack gap-2">
+              {session.participants.map(name => {
+                const pending = isPendingDeletion(name);
+                return (
+                  <div key={name} className={`d-flex align-items-center justify-content-between p-2 px-3 border rounded-3 transition-all ${pending ? 'bg-light opacity-75 border-dashed text-muted' : 'bg-white shadow-sm'}`}>
+                    <div className="d-flex align-items-center gap-2">
+                      <span className={`fw-bold ${pending ? 'text-decoration-line-through' : ''}`}>{name}</span>
+                      {pending && (
+                        <span className="badge bg-warning bg-opacity-10 text-warning rounded-pill x-small fw-black d-flex align-items-center gap-1 border border-warning border-opacity-25">
+                          <ShieldAlert size={10} /> 待审批退出
+                        </span>
+                      )}
+                    </div>
+                    
+                    <div className="d-flex align-items-center gap-1">
+                      {isAdmin && pending ? (
+                        <>
+                          <button 
+                            onClick={() => handleApproveDeletion(name)}
+                            className="btn btn-success btn-sm rounded-circle p-1 shadow-sm"
+                            title="同意退出"
+                          >
+                            <UserCheck size={14} />
+                          </button>
+                          <button 
+                            onClick={() => handleRejectDeletion(name)}
+                            className="btn btn-outline-danger btn-sm rounded-circle p-1"
+                            title="拒绝退出"
+                          >
+                            <UserX size={14} />
+                          </button>
+                        </>
+                      ) : (
+                        <button 
+                          onClick={() => handleRemoveClick(name)} 
+                          className={`btn btn-link p-1 text-muted border-0 hover-${isAdmin ? 'danger' : 'warning'}`}
+                          title={isAdmin ? "直接移除" : "申请退出"}
+                        >
+                          {isAdmin ? <Trash2 size={16} /> : <X size={16} />}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div className="h-100 d-flex flex-column align-items-center justify-content-center border border-dashed rounded-4 p-4 text-muted opacity-50">
@@ -386,13 +446,11 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
       </div>
       
       <style>{`
-        .participant-chip:hover { border-color: #10b981 !important; background-color: #f0fdf4 !important; }
         .hover-danger:hover { color: #ef4444 !important; }
-        .hover-success:hover { color: #10b981 !important; }
+        .hover-warning:hover { color: #f59e0b !important; }
         .fw-black { font-weight: 900 !important; }
-        .btn-white { background-color: white !important; }
-        .cursor-not-allowed { cursor: not-allowed; }
         .x-small { font-size: 0.65rem; }
+        .transition-all { transition: all 0.2s ease; }
       `}</style>
     </div>
   );

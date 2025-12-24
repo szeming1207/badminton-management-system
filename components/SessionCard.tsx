@@ -29,7 +29,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
     }
   }, [session.courtFee, session.shuttleQty, session.shuttlePrice, isEditingCosts]);
 
-  // 编辑详情状态
+  // 编辑详情状态，包括日期
   const [editDate, setEditDate] = React.useState(session.date);
   const [editStartTime, setEditStartTime] = React.useState(session.time.split(' - ')[0] || '19:00');
   const [editEndTime, setEditEndTime] = React.useState(session.time.split(' - ')[1] || '21:00');
@@ -78,9 +78,12 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
   const handleUpdateDetails = () => {
     let newCourtFee = session.courtFee;
     const config = locations.find(l => l.name === session.location);
+    
+    // 如果找到了对应的场地配置，重新计算默认场地费
     if (config) {
       newCourtFee = Number(config.defaultCourtFee) * editCourtCount;
     } else {
+      // 否则根据当前费用比例缩放
       const oldRate = session.courtFee / (session.courtCount || 1);
       newCourtFee = oldRate * editCourtCount;
     }
@@ -120,51 +123,58 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
         <div className="d-flex justify-content-between align-items-start">
           <div className="flex-grow-1">
             {isEditingDetails ? (
-              <div className="vstack gap-2 mt-2">
-                <div className="d-flex align-items-center gap-2">
-                  <CalendarIcon size={14} className="text-success" />
-                  <input 
-                    type="date"
-                    value={editDate}
-                    onChange={(e) => setEditDate(e.target.value)}
-                    className="form-control form-control-sm fw-bold rounded-2"
-                    style={{ width: '160px' }}
-                  />
+              <div className="vstack gap-2 mt-2 bg-white p-3 rounded-3 shadow-sm border border-success border-opacity-25">
+                <div>
+                  <label className="x-small fw-black text-muted text-uppercase d-block mb-1">修改活动日期</label>
+                  <div className="d-flex align-items-center gap-2">
+                    <CalendarIcon size={14} className="text-success" />
+                    <input 
+                      type="date"
+                      value={editDate}
+                      onChange={(e) => setEditDate(e.target.value)}
+                      className="form-control form-control-sm fw-bold rounded-2 border-success border-opacity-50"
+                      style={{ width: '100%' }}
+                    />
+                  </div>
                 </div>
-                <div className="d-flex align-items-center gap-2">
-                  <Clock size={14} className="text-success" />
-                  <select 
-                    value={editStartTime} 
-                    onChange={(e) => setEditStartTime(e.target.value)}
-                    className="form-select form-select-sm fw-bold rounded-2"
-                    style={{ width: '90px' }}
-                  >
-                    {timeOptions.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                  <span className="text-muted">-</span>
-                  <select 
-                    value={editEndTime} 
-                    onChange={(e) => setEditEndTime(e.target.value)}
-                    className="form-select form-select-sm fw-bold rounded-2"
-                    style={{ width: '90px' }}
-                  >
-                    {timeOptions.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
-                <div className="d-flex align-items-center gap-2">
-                  <MapPin size={14} className="text-danger" />
-                  <div className="input-group input-group-sm" style={{ width: '120px' }}>
+                
+                <div className="row g-2">
+                  <div className="col-8">
+                    <label className="x-small fw-black text-muted text-uppercase d-block mb-1">时间段</label>
+                    <div className="d-flex align-items-center gap-2">
+                      <Clock size={14} className="text-success" />
+                      <select 
+                        value={editStartTime} 
+                        onChange={(e) => setEditStartTime(e.target.value)}
+                        className="form-select form-select-sm fw-bold rounded-2"
+                      >
+                        {timeOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                      <span className="text-muted">-</span>
+                      <select 
+                        value={editEndTime} 
+                        onChange={(e) => setEditEndTime(e.target.value)}
+                        className="form-select form-select-sm fw-bold rounded-2"
+                      >
+                        {timeOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="col-4">
+                    <label className="x-small fw-black text-muted text-uppercase d-block mb-1">场地数</label>
                     <input 
                       type="number" 
                       min="1"
                       value={editCourtCount} 
                       onChange={(e) => setEditCourtCount(parseInt(e.target.value) || 1)}
-                      className="form-control fw-bold"
+                      className="form-control form-control-sm fw-bold rounded-2 text-center"
                     />
-                    <span className="input-group-text small px-2">场地</span>
                   </div>
-                  <button onClick={handleUpdateDetails} className="btn btn-success btn-sm rounded-circle p-1 ms-2 shadow-sm">
-                    <Check size={16} />
+                </div>
+
+                <div className="d-flex gap-2 mt-2">
+                  <button onClick={handleUpdateDetails} className="btn btn-success btn-sm flex-grow-1 fw-black d-flex align-items-center justify-content-center gap-1 shadow-sm">
+                    <Check size={14} /> 保存修改
                   </button>
                   <button onClick={() => {
                     setIsEditingDetails(false);
@@ -172,8 +182,8 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
                     setEditStartTime(session.time.split(' - ')[0]);
                     setEditEndTime(session.time.split(' - ')[1]);
                     setEditCourtCount(session.courtCount);
-                  }} className="btn btn-light btn-sm rounded-circle p-1 border">
-                    <X size={16} />
+                  }} className="btn btn-light btn-sm px-3 border">
+                    <X size={14} />
                   </button>
                 </div>
               </div>
@@ -197,7 +207,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
                     <button 
                       onClick={() => setIsEditingDetails(true)} 
                       className="btn btn-link text-success p-1 rounded-circle hover-bg-light"
-                      title="编辑时间、日期及场地数量"
+                      title="编辑日期、时间及场地数量"
                     >
                       <Edit2 size={14} />
                     </button>
@@ -218,7 +228,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
       <div className="row g-0 border-top border-bottom">
         <div className="col-6 p-4 border-end">
           <div className="d-flex justify-content-between align-items-center mb-1">
-            <small className="text-muted fw-black text-uppercase tracking-wider" style={{ fontSize: '0.65rem' }}>总费用</small>
+            <small className="text-muted fw-black text-uppercase tracking-wider" style={{ fontSize: '0.65rem' }}>总费用预算</small>
             {isAdmin && (
               <button 
                 onClick={() => setIsEditingCosts(!isEditingCosts)} 
@@ -234,7 +244,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
             {isEditingCosts ? (
               <div className="vstack gap-1 mt-2 p-2 bg-success bg-opacity-10 rounded-3">
                 <div className="d-flex align-items-center gap-2 mb-1">
-                  <small className="fw-black text-success" style={{ fontSize: '0.6rem' }}>场地费 (只读)</small>
+                  <small className="fw-black text-success" style={{ fontSize: '0.6rem' }}>场地费 (锁定)</small>
                   <input 
                     type="number" 
                     readOnly
@@ -285,7 +295,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
           </div>
         </div>
         <div className="col-6 p-4 bg-light bg-opacity-50">
-          <small className="text-success fw-black text-uppercase tracking-wider d-block mb-1" style={{ fontSize: '0.65rem' }}>每人分担 (AA)</small>
+          <small className="text-success fw-black text-uppercase tracking-wider d-block mb-1" style={{ fontSize: '0.65rem' }}>每人应缴 (AA)</small>
           <h4 className="fw-black text-success mb-2">RM {costPerPerson.toFixed(2)}</h4>
           <div className="d-flex align-items-center gap-2">
              <span className={`badge rounded-pill fw-black py-1 px-2 border ${isFull ? 'bg-danger bg-opacity-10 text-danger border-danger border-opacity-25' : 'bg-white text-success border-success border-opacity-25'}`}>
@@ -320,6 +330,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
                   + {name}
                 </button>
               ))}
+              {frequentParticipants.length === 0 && <span className="small text-muted">暂无历史名单</span>}
             </div>
           </div>
         )}
@@ -351,13 +362,13 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
           {isFull ? (
             <div className="alert alert-danger bg-danger bg-opacity-10 border-0 rounded-4 d-flex align-items-center gap-2 p-3 mb-0">
                <AlertCircle size={18} className="flex-shrink-0" />
-               <small className="fw-bold">报名名额已满</small>
+               <small className="fw-bold">本场报名已满</small>
             </div>
           ) : (
             <form onSubmit={(e) => { e.preventDefault(); handleAddName(newName); }} className="input-group">
               <input
                 type="text"
-                placeholder="填下名字参与..."
+                placeholder="填写名字报名..."
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 className="form-control bg-light border-0 rounded-start-4 px-4 py-3 fw-bold shadow-none"
@@ -381,6 +392,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
         .fw-black { font-weight: 900 !important; }
         .btn-white { background-color: white !important; }
         .cursor-not-allowed { cursor: not-allowed; }
+        .x-small { font-size: 0.65rem; }
       `}</style>
     </div>
   );

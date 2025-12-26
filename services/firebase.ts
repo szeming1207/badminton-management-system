@@ -9,21 +9,26 @@ import {
   doc, 
   query, 
   orderBy,
-  setDoc,
-  enableNetwork
+  setDoc
 } from "firebase/firestore";
-import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
+import { getAuth, signInAnonymously } from "firebase/auth";
 
-const SECURE_CONFIG = {
-  apiKey: process.env.FIREBASE_API_KEY || process.env.API_KEY || "AIzaSyDpjLq0-sP7U-YpgfFvZRpjpvq3TNj1Fdc",
-  authDomain: process.env.FIREBASE_AUTH_DOMAIN || "badminton-b513e.firebaseapp.com",
-  projectId: process.env.FIREBASE_PROJECT_ID || "badminton-b513e",
-  storageBucket: process.env.FIREBASE_STORAGE_BUCKET || "badminton-b513e.firebasestorage.app",
-  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || "504434789296",
-  appId: process.env.FIREBASE_APP_ID || "1:504434789296:web:e1510b72b16af858bc6475"
+// 统一获取 API Key 的逻辑
+const getEnv = (key: string) => {
+  if (typeof process !== 'undefined' && process.env?.[key]) return process.env[key];
+  return (import.meta as any).env?.[`VITE_${key}`] || (import.meta as any).env?.[key];
 };
 
-const isConfigValid = SECURE_CONFIG.apiKey && SECURE_CONFIG.apiKey.length > 10;
+const SECURE_CONFIG = {
+  apiKey: getEnv('FIREBASE_API_KEY') || getEnv('API_KEY'),
+  authDomain: getEnv('FIREBASE_AUTH_DOMAIN') || "badminton-b513e.firebaseapp.com",
+  projectId: getEnv('FIREBASE_PROJECT_ID') || "badminton-b513e",
+  storageBucket: getEnv('FIREBASE_STORAGE_BUCKET') || "badminton-b513e.firebasestorage.app",
+  messagingSenderId: getEnv('FIREBASE_MESSAGING_SENDER_ID') || "504434789296",
+  appId: getEnv('FIREBASE_APP_ID') || "1:504434789296:web:e1510b72b16af858bc6475"
+};
+
+const isConfigValid = !!SECURE_CONFIG.apiKey;
 
 let db: any = null;
 let auth: any = null;
@@ -35,9 +40,8 @@ if (isConfigValid) {
     db = getFirestore(app);
     auth = getAuth(app);
     
-    // 异步执行匿名登录，不阻塞导出
     connectionPromise = signInAnonymously(auth).then(() => {
-      console.log("Firebase Connected Anonymously");
+      console.log("Firebase Connected");
     }).catch(err => {
       console.error("Auth failed:", err);
     });
@@ -49,7 +53,6 @@ if (isConfigValid) {
 export const firebaseService = {
   isConfigured: () => isConfigValid && !!db,
   
-  // 暴露等待初始化的能力
   waitUntilReady: () => connectionPromise || Promise.resolve(),
 
   subscribeSessions: (callback: (data: any[]) => void, onError?: (err: string) => void) => {
@@ -59,7 +62,7 @@ export const firebaseService = {
       const sessions = snapshot.docs.map(doc => ({
         ...doc.data(),
         id: doc.id,
-        waitingList: doc.data().waitingList || [], // 强制兼容旧数据
+        waitingList: doc.data().waitingList || [],
         participants: doc.data().participants || [],
         status: doc.data().status || 'active'
       }));

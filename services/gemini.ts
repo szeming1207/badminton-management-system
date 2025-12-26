@@ -3,18 +3,19 @@ import { GoogleGenAI } from "@google/genai";
 
 export const getSessionAdvice = async (sessionsSummary: string) => {
   try {
-    // 强制使用 process.env.API_KEY 获取环境配置的 Key
-    const apiKey = process.env.API_KEY;
+    // 兼容多种环境的 Key 获取逻辑
+    // 1. 优先尝试标准的 process.env.API_KEY (当前环境)
+    // 2. 备选尝试 Vite 的 import.meta.env.VITE_API_KEY (Vercel/Vite 环境)
+    const apiKey = process.env.API_KEY || (import.meta as any).env?.VITE_API_KEY;
     
     if (!apiKey) {
-      console.warn("API_KEY environment variable is not set.");
-      return "请在项目环境变量中配置 API_KEY 以启用 AI 功能。";
+      console.warn("未检测到 API_KEY 或 VITE_API_KEY 环境变量。");
+      return "请在环境变量中配置 API_KEY 以启用 AI 功能。";
     }
 
-    // 规范初始化方式
+    // 初始化 Gemini API
     const ai = new GoogleGenAI({ apiKey });
     
-    // 直接使用 ai.models.generateContent 进行请求
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: [{
@@ -31,12 +32,10 @@ ${sessionsSummary}`
       }
     });
 
-    // 规范获取文本内容方式：response.text
     return response.text || "AI 管家正在热身，请稍后再试。";
   } catch (error: any) {
     console.error("AI Insight Error:", error);
     
-    // 识别具体错误类型
     if (error.message?.includes("API_KEY_INVALID")) {
       return "API Key 无效，请检查环境变量配置。";
     }

@@ -9,8 +9,10 @@ export interface Session {
   shuttleQty: number;
   shuttlePrice: number;
   participants: string[];
-  deletionRequests?: string[]; // 新增：记录申请退出的名单
+  waitingList?: string[]; // 新增：排队等候名单
+  deletionRequests?: string[]; 
   maxParticipants: number;
+  status?: 'active' | 'completed'; // 新增：活动状态
 }
 
 export interface LocationConfig {

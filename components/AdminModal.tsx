@@ -60,7 +60,6 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose, onSubmit, loca
   };
 
   const handleCourtCountChange = (value: string) => {
-    // 处理空输入
     if (value === '') {
       setFormData(prev => ({ ...prev, courtCount: 0, courtFee: 0 }));
       return;

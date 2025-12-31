@@ -45,11 +45,9 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
   const maxParticipants = session.maxParticipants || 8;
   const isFull = participantCount >= maxParticipants;
   
-  // 计算人均
   const costPerPerson = participantCount > 0 ? totalEventCost / participantCount : 0;
 
   const previewTotal = Number(tempCourtFee) + (Number(tempShuttleQty) * Number(tempShuttlePrice));
-  const previewAA = participantCount > 0 ? previewTotal / participantCount : previewTotal / maxParticipants;
 
   const handleUpdateCosts = () => {
     onUpdate({ 
@@ -138,7 +136,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
         </div>
       )}
 
-      {/* 头部 */}
+      {/* 头部展示 */}
       <div className={`card-header border-0 p-4 ${isCompleted ? 'bg-secondary bg-opacity-10' : 'bg-light'}`}>
         <div className="d-flex justify-content-between align-items-start">
           <div className="flex-grow-1">
@@ -204,38 +202,39 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
         </div>
       </div>
 
-      {/* 核心显示区 */}
-      <div className="bg-white border-top border-bottom">
+      {/* 核心财务区 */}
+      <div className="bg-light border-top border-bottom">
         {isEditingCosts ? (
-          <div className="p-4 vstack gap-3 bg-light bg-opacity-50">
+          <div className="p-4 vstack gap-3">
             <h6 className="fw-black x-small text-uppercase text-muted d-flex align-items-center justify-content-between mb-0">
               <span className="d-flex align-items-center gap-2"><Calculator size={14} /> 财务修正</span>
-              <span className="text-success fw-black">预览: RM {previewTotal.toFixed(2)}</span>
+              <span className="text-primary fw-black">预览: RM {previewTotal.toFixed(2)}</span>
             </h6>
             <div className="row g-2">
               <div className="col-12">
                 <label className="x-small fw-black text-muted mb-1">纯场地费 (RM)</label>
-                <input type="number" value={tempCourtFee} onChange={e => setTempCourtFee(parseFloat(e.target.value) || 0)} className="form-control form-control-sm fw-bold border-success border-opacity-25" />
+                <input type="number" value={tempCourtFee} onChange={e => setTempCourtFee(parseFloat(e.target.value) || 0)} className="form-control form-control-sm fw-bold border-0 shadow-sm" />
               </div>
               <div className="col-6">
                 <label className="x-small fw-black text-muted mb-1">羽球用量 (个)</label>
-                <input type="number" value={tempShuttleQty} onChange={e => setTempShuttleQty(parseInt(e.target.value) || 0)} className="form-control form-control-sm fw-bold border-success border-opacity-25" />
+                <input type="number" value={tempShuttleQty} onChange={e => setTempShuttleQty(parseInt(e.target.value) || 0)} className="form-control form-control-sm fw-bold border-0 shadow-sm" />
               </div>
               <div className="col-6">
                 <label className="x-small fw-black text-muted mb-1">羽球单价 (RM)</label>
-                <input type="number" step="0.1" value={tempShuttlePrice} onChange={e => setTempShuttlePrice(parseFloat(e.target.value) || 0)} className="form-control form-control-sm fw-bold border-success border-opacity-25" />
+                <input type="number" step="0.1" value={tempShuttlePrice} onChange={e => setTempShuttlePrice(parseFloat(e.target.value) || 0)} className="form-control form-control-sm fw-bold border-0 shadow-sm" />
               </div>
             </div>
             <div className="d-flex gap-2">
-              <button onClick={handleUpdateCosts} className="btn btn-success btn-sm flex-grow-1 fw-black">保存开销</button>
-              <button onClick={() => setIsEditingCosts(false)} className="btn btn-light btn-sm border">取消</button>
+              <button onClick={handleUpdateCosts} className="btn btn-primary btn-sm flex-grow-1 fw-black">保存开销</button>
+              <button onClick={() => setIsEditingCosts(false)} className="btn btn-white btn-sm border">取消</button>
             </div>
           </div>
         ) : (
           <div className="row g-0">
-            <div className="col-6 p-4 border-end">
+            {/* 左侧：总预算 */}
+            <div className="col-6 p-4">
               <div className="d-flex justify-content-between align-items-center mb-1">
-                <small className="text-muted fw-black text-uppercase" style={{ fontSize: '0.65rem' }}>总预算 (场费+羽球)</small>
+                <small className="text-muted fw-black text-uppercase" style={{ fontSize: '0.65rem' }}>活动总额</small>
                 {isAdmin && !isCompleted && <Edit3 size={14} className="text-muted cursor-pointer" onClick={() => setIsEditingCosts(true)} />}
               </div>
               <h4 className="fw-black mb-1">RM {totalEventCost.toFixed(2)}</h4>
@@ -244,29 +243,32 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
                 <span>羽球: RM {totalShuttleCost.toFixed(2)}</span>
               </div>
             </div>
-            <div className={`col-6 p-4 ${isCompleted ? 'bg-secondary bg-opacity-10' : 'bg-success bg-opacity-5'}`}>
-              <div className="d-flex justify-content-between align-items-center mb-1">
-                <small className="text-success fw-black text-uppercase" style={{ fontSize: '0.65rem' }}>每个人应 AA</small>
-                <span className={`badge rounded-pill fw-black px-2 ${isFull ? 'bg-danger bg-opacity-10 text-danger border-danger border-opacity-25' : 'bg-white text-success border border-success border-opacity-25'}`} style={{ fontSize: '0.6rem' }}>
-                  {participantCount} / {maxParticipants} 人
-                </span>
-              </div>
-              <h4 className={`fw-black mb-1 ${isCompleted ? 'text-muted' : 'text-success'}`}>
-                {participantCount > 0 ? `RM ${costPerPerson.toFixed(2)}` : 'RM --'}
-              </h4>
-              <div className="d-flex align-items-center gap-1 text-muted fw-bold" style={{ fontSize: '0.65rem' }}>
-                <TrendingUp size={10} className="text-success" />
-                <span>羽球用量: {session.shuttleQty} 个</span>
+            {/* 右侧：人均 AA (白色框样式) */}
+            <div className="col-6 p-3">
+              <div className={`h-100 p-3 rounded-4 bg-white border shadow-sm d-flex flex-column justify-content-center ${isCompleted ? 'opacity-75' : ''}`}>
+                <div className="d-flex justify-content-between align-items-center mb-1">
+                  <small className="text-dark fw-black text-uppercase opacity-50" style={{ fontSize: '0.65rem' }}>每个人应 AA</small>
+                  <span className={`badge rounded-pill fw-black px-2 ${isFull ? 'bg-danger bg-opacity-10 text-danger border border-danger border-opacity-10' : 'bg-light text-muted border'}`} style={{ fontSize: '0.6rem' }}>
+                    {participantCount}/{maxParticipants}
+                  </span>
+                </div>
+                <h4 className="fw-black mb-1 text-dark">
+                  {participantCount > 0 ? `RM ${costPerPerson.toFixed(2)}` : 'RM --'}
+                </h4>
+                <div className="d-flex align-items-center gap-1 text-muted fw-bold" style={{ fontSize: '0.6rem' }}>
+                  <TrendingUp size={10} className="text-success" />
+                  <span>用球: {session.shuttleQty} 个</span>
+                </div>
               </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* 名单 */}
+      {/* 名单区域 */}
       <div className="card-body p-4 d-flex flex-column gap-3">
         <h6 className="fw-black mb-0 d-flex align-items-center gap-2">
-          <Users size={18} className="text-success" /> 出席名单 & 缴费预览
+          <Users size={18} className="text-success" /> 出席名单 & 缴费
         </h6>
         
         <div className="vstack gap-2" style={{ maxHeight: '200px', overflowY: 'auto' }}>
@@ -274,7 +276,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
             <div key={name} className="d-flex align-items-center justify-content-between p-2 px-3 border rounded-3 bg-white shadow-sm hover-border-success transition-all">
               <div>
                 <span className="fw-bold me-2">{name}</span>
-                <span className="x-small fw-black text-success opacity-75">(RM {costPerPerson.toFixed(2)})</span>
+                <span className="x-small fw-black text-muted opacity-75">(RM {costPerPerson.toFixed(2)})</span>
               </div>
               {!isCompleted && (
                 <button onClick={() => handleRemoveClick(name)} className="btn btn-link p-1 text-muted border-0 hover-danger">
@@ -283,7 +285,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
               )}
             </div>
           ))}
-          {session.participants.length === 0 && <div className="text-center py-3 text-muted small fw-bold italic bg-light rounded-3 border border-dashed">等待第一位球友报名...</div>}
+          {session.participants.length === 0 && <div className="text-center py-3 text-muted small fw-bold italic bg-white rounded-3 border border-dashed">等待报名...</div>}
         </div>
 
         {session.waitingList && session.waitingList.length > 0 && (
@@ -303,7 +305,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
         <div className="pt-2 border-top">
           {!isCompleted && (
             <form onSubmit={(e) => { e.preventDefault(); handleAddName(newName); }} className="input-group shadow-sm border rounded-3 overflow-hidden">
-              <input type="text" placeholder={isFull ? "正赛已满，进入候补..." : "输入姓名加入战局..."} value={newName} onChange={(e) => setNewName(e.target.value)} className="form-control border-0 bg-light fw-bold px-3 py-2" />
+              <input type="text" placeholder={isFull ? "正赛已满，进入候补..." : "输入姓名..."} value={newName} onChange={(e) => setNewName(e.target.value)} className="form-control border-0 bg-white fw-bold px-3 py-2" />
               <button type="submit" className={`btn border-0 rounded-0 px-3 ${isFull ? 'btn-warning' : 'btn-success'}`}>
                 {isFull ? <Timer size={18} /> : <UserPlus size={18} />}
               </button>

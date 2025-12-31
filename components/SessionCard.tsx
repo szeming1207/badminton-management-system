@@ -268,15 +268,14 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
       {/* 名单区域 */}
       <div className="card-body p-4 d-flex flex-column gap-3">
         <h6 className="fw-black mb-0 d-flex align-items-center gap-2">
-          <Users size={18} className="text-success" /> 出席名单 & 缴费
+          <Users size={18} className="text-success" /> 出席名单 ({participantCount}人)
         </h6>
         
         <div className="vstack gap-2" style={{ maxHeight: '200px', overflowY: 'auto' }}>
           {session.participants.map(name => (
             <div key={name} className="d-flex align-items-center justify-content-between p-2 px-3 border rounded-3 bg-white shadow-sm hover-border-success transition-all">
               <div>
-                <span className="fw-bold me-2">{name}</span>
-                <span className="x-small fw-black text-muted opacity-75">(RM {costPerPerson.toFixed(2)})</span>
+                <span className="fw-bold">{name}</span>
               </div>
               {!isCompleted && (
                 <button onClick={() => handleRemoveClick(name)} className="btn btn-link p-1 text-muted border-0 hover-danger">

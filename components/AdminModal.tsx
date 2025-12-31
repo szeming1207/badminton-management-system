@@ -11,7 +11,6 @@ interface AdminModalProps {
 }
 
 const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose, onSubmit, locations }) => {
-  // 初始状态定义
   const initialState = {
     date: new Date().toISOString().split('T')[0],
     startTime: '19:00',
@@ -26,22 +25,39 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose, onSubmit, loca
 
   const [formData, setFormData] = React.useState(initialState);
 
-  // 辅助函数：根据场地名称获取单价
+  // 辅助函数：计算时长（小时）
+  const calculateDuration = (start: string, end: string): number => {
+    const [startH, startM] = start.split(':').map(Number);
+    const [endH, endM] = end.split(':').map(Number);
+    const startTotal = startH + startM / 60;
+    const endTotal = endH + endM / 60;
+    const diff = endTotal - startTotal;
+    return diff > 0 ? diff : 0;
+  };
+
   const getRate = (locName: string) => {
     const loc = locations.find(l => l.name === locName);
     return loc ? Number(loc.defaultCourtFee) : 0;
   };
 
-  // 关键修复：每次打开弹窗时重置状态并自动计算初始场地费
+  // 核心计算逻辑：单价 * 数量 * 小时
+  const updateCalculatedFee = (data: typeof formData) => {
+    const rate = getRate(data.location);
+    const duration = calculateDuration(data.startTime, data.endTime);
+    const newFee = rate * (data.courtCount || 0) * duration;
+    return newFee;
+  };
+
   React.useEffect(() => {
     if (isOpen) {
       if (locations && locations.length > 0) {
         const defaultLoc = locations[0];
-        setFormData({
+        const initialData = {
           ...initialState,
           location: defaultLoc.name,
-          courtFee: Number(defaultLoc.defaultCourtFee) * initialState.courtCount
-        });
+        };
+        const fee = updateCalculatedFee(initialData);
+        setFormData({ ...initialData, courtFee: fee });
       } else {
         setFormData(initialState);
       }
@@ -50,32 +66,11 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose, onSubmit, loca
 
   if (!isOpen) return null;
 
-  const handleLocationSelect = (locName: string) => {
-    const rate = getRate(locName);
-    setFormData(prev => ({
-      ...prev,
-      location: locName,
-      courtFee: rate * prev.courtCount
-    }));
-  };
-
-  const handleCourtCountChange = (value: string) => {
-    if (value === '') {
-      setFormData(prev => ({ ...prev, courtCount: 0, courtFee: 0 }));
-      return;
-    }
-    
-    const count = parseInt(value);
-    const safeCount = isNaN(count) ? 0 : count;
-    
+  const handleInputChange = (updates: Partial<typeof formData>) => {
     setFormData(prev => {
-      const rate = getRate(prev.location);
-      const newFee = rate * safeCount;
-      return {
-        ...prev,
-        courtCount: safeCount,
-        courtFee: newFee
-      };
+      const newData = { ...prev, ...updates };
+      const newFee = updateCalculatedFee(newData);
+      return { ...newData, courtFee: newFee };
     });
   };
 
@@ -105,6 +100,8 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose, onSubmit, loca
     timeOptions.push(`${hour}:00`, `${hour}:30`);
   }
 
+  const currentDuration = calculateDuration(formData.startTime, formData.endTime);
+
   return (
     <div className="modal show d-block" tabIndex={-1}>
       <div className="modal-backdrop fade show position-fixed" onClick={onClose} style={{ zIndex: 1040 }}></div>
@@ -123,14 +120,14 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose, onSubmit, loca
               {locations && locations.length > 0 ? (
                 <select
                   value={formData.location}
-                  onChange={e => handleLocationSelect(e.target.value)}
+                  onChange={e => handleInputChange({ location: e.target.value })}
                   className="form-select form-select-lg bg-light border-0 rounded-3 fw-bold"
                   required
                 >
                   <option value="" disabled>-- 请选择场地 --</option>
                   {locations.map(loc => (
                     <option key={loc.id} value={loc.name}>
-                      {loc.name} (单价 RM{loc.defaultCourtFee})
+                      {loc.name} (RM{loc.defaultCourtFee}/小时/场)
                     </option>
                   ))}
                 </select>
@@ -151,18 +148,18 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose, onSubmit, loca
                   type="date"
                   required
                   value={formData.date}
-                  onChange={e => setFormData({ ...formData, date: e.target.value })}
+                  onChange={e => handleInputChange({ date: e.target.value })}
                   className="form-control form-control-lg bg-light border-0 rounded-3 fw-bold"
                 />
               </div>
               <div className="col-12 col-md-6">
                  <label className="form-label small fw-black text-muted text-uppercase tracking-wider d-flex align-items-center gap-2 mb-2">
-                  <Clock size={16} /> 时间段
+                  <Clock size={16} /> 时间段 ({currentDuration.toFixed(1)}小时)
                 </label>
                 <div className="d-flex gap-2">
                   <select
                     value={formData.startTime}
-                    onChange={e => setFormData({ ...formData, startTime: e.target.value })}
+                    onChange={e => handleInputChange({ startTime: e.target.value })}
                     className="form-select bg-light border-0 rounded-3 small fw-bold"
                   >
                     {timeOptions.map(t => <option key={t} value={t}>{t}</option>)}
@@ -170,7 +167,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose, onSubmit, loca
                   <span className="align-self-center text-muted">-</span>
                   <select
                     value={formData.endTime}
-                    onChange={e => setFormData({ ...formData, endTime: e.target.value })}
+                    onChange={e => handleInputChange({ endTime: e.target.value })}
                     className="form-select bg-light border-0 rounded-3 small fw-bold"
                   >
                     {timeOptions.map(t => <option key={t} value={t}>{t}</option>)}
@@ -186,8 +183,8 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose, onSubmit, loca
                   type="number"
                   min="1"
                   required
-                  value={formData.courtCount === 0 ? '' : formData.courtCount}
-                  onChange={e => handleCourtCountChange(e.target.value)}
+                  value={formData.courtCount}
+                  onChange={e => handleInputChange({ courtCount: parseInt(e.target.value) || 0 })}
                   className="form-control form-control-lg bg-light border-0 rounded-3 fw-black"
                 />
               </div>
@@ -208,24 +205,26 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose, onSubmit, loca
 
             <div className="bg-light p-4 rounded-4 border border-dashed shadow-inner">
               <h6 className="fw-black text-uppercase tracking-widest small text-muted mb-4 d-flex align-items-center gap-2">
-                <Calculator size={14} /> 费用预算控制 (RM)
+                <Calculator size={14} /> 自动计算总场费 (RM)
               </h6>
               <div className="vstack gap-3">
-                <div>
-                  <label className="form-label x-small fw-black text-muted text-uppercase mb-2">场地总费用 (根据数量自动计算)</label>
-                  <div className="input-group">
-                    <span className="input-group-text bg-white border-0 px-2 fw-bold text-muted">RM</span>
-                    <input
-                      type="number"
-                      readOnly
-                      value={formData.courtFee.toFixed(2)}
-                      className="form-control form-control-lg border-0 fw-black text-success bg-transparent cursor-not-allowed"
-                    />
+                <div className="d-flex justify-content-between align-items-end">
+                  <div>
+                    <label className="form-label x-small fw-black text-muted text-uppercase mb-1">计算详情</label>
+                    <div className="small fw-bold text-muted">
+                      RM {getRate(formData.location)} × {formData.courtCount}场 × {currentDuration.toFixed(1)}h
+                    </div>
+                  </div>
+                  <div className="text-end">
+                    <span className="h3 fw-black text-success mb-0">RM {formData.courtFee.toFixed(2)}</span>
                   </div>
                 </div>
+                
+                <hr className="my-1 opacity-10" />
+
                 <div className="row g-3">
                   <div className="col-6">
-                    <label className="form-label x-small fw-black text-muted text-uppercase mb-2">羽毛球数量</label>
+                    <label className="form-label x-small fw-black text-muted text-uppercase mb-2">预计羽毛球用量</label>
                     <input
                       type="number"
                       min="0"
@@ -256,7 +255,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose, onSubmit, loca
             <div className="pt-2">
               <button 
                 type="submit"
-                disabled={!locations || locations.length === 0}
+                disabled={!locations || locations.length === 0 || currentDuration <= 0}
                 className="btn btn-success btn-lg w-100 rounded-pill py-3 fw-black shadow-lg"
               >
                 立即发布球局
@@ -265,11 +264,6 @@ const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose, onSubmit, loca
           </form>
         </div>
       </div>
-      <style>{`
-        .x-small { font-size: 0.65rem; }
-        .shadow-inner { box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05); }
-        .cursor-not-allowed { cursor: not-allowed; }
-      `}</style>
     </div>
   );
 };

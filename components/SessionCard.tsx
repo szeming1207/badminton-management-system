@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Users, MapPin, X, Trash2, UserPlus, Save, Edit3, Clock, CheckCircle2, Edit2, DollarSign, Timer, Calculator, Package } from 'lucide-react';
+import { Users, MapPin, X, Trash2, UserPlus, Save, Edit3, Clock, CheckCircle2, Edit2, DollarSign, Timer, Calculator, Package, TrendingUp } from 'lucide-react';
 import { Session, LocationConfig } from '../types';
 
 interface SessionCardProps {
@@ -43,11 +43,15 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
 
   const currentDuration = calculateDuration(session.time.split(' - ')[0], session.time.split(' - ')[1]);
   const totalShuttleCost = session.shuttleQty * session.shuttlePrice;
-  const totalCost = session.courtFee + totalShuttleCost;
+  const totalEventCost = session.courtFee + totalShuttleCost; // 关键：这是包含羽球的总费
   const participantCount = session.participants.length;
   const maxParticipants = session.maxParticipants || 8;
   const isFull = participantCount >= maxParticipants;
-  const costPerPerson = participantCount > 0 ? totalCost / participantCount : totalCost;
+  const costPerPerson = participantCount > 0 ? totalEventCost / participantCount : totalEventCost;
+
+  // 预览计算（用于编辑面板）
+  const previewTotal = Number(tempCourtFee) + (Number(tempShuttleQty) * Number(tempShuttlePrice));
+  const previewAA = participantCount > 0 ? previewTotal / participantCount : previewTotal;
 
   // 更新费用逻辑
   const handleUpdateCosts = () => {
@@ -59,14 +63,13 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
     setIsEditingCosts(false);
   };
 
-  // 更新基本信息逻辑（包含联动计算场费）
+  // 更新基本信息逻辑
   const handleUpdateDetails = () => {
     const duration = calculateDuration(editStartTime, editEndTime);
     const config = locations.find(l => l.name === session.location);
     let newCourtFee = session.courtFee;
 
     if (config) {
-      // 按照最新的 1小时单价 * 场数 * 时长 重新计算
       newCourtFee = Number(config.defaultCourtFee) * editCourtCount * duration;
     }
 
@@ -139,7 +142,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
         </div>
       )}
 
-      {/* 头部信息展示/编辑 */}
+      {/* 头部信息 */}
       <div className={`card-header border-0 p-4 ${isCompleted ? 'bg-secondary bg-opacity-10' : 'bg-light'}`}>
         <div className="d-flex justify-content-between align-items-start">
           <div className="flex-grow-1">
@@ -171,7 +174,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
                   </div>
                 </div>
                 <div className="d-flex gap-2 pt-1">
-                  <button onClick={handleUpdateDetails} className="btn btn-success btn-sm flex-grow-1 fw-black shadow-sm">保存修改</button>
+                  <button onClick={handleUpdateDetails} className="btn btn-success btn-sm flex-grow-1 fw-black shadow-sm">确认并重新计算</button>
                   <button onClick={() => setIsEditingDetails(false)} className="btn btn-light btn-sm border">取消</button>
                 </div>
               </div>
@@ -184,7 +187,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
                   <span className="badge rounded-pill bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-3 py-2 fw-bold">
                     <Clock size={14} className="me-1" /> {session.time}
                   </span>
-                  <div className="d-flex align-items-center gap-1 small fw-bold text-muted bg-white px-2 py-1 rounded-pill border">
+                  <div className="d-flex align-items-center gap-1 small fw-bold text-muted bg-white px-2 py-1 rounded-pill border shadow-sm">
                     <MapPin size={12} className="text-danger" />
                     <span>{session.location}</span>
                     <span className="opacity-25 mx-1">|</span>
@@ -210,29 +213,36 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
         </div>
       </div>
 
-      {/* 费用展示/编辑区域 */}
+      {/* 核心显示/编辑区域 */}
       <div className="bg-white border-top border-bottom">
         {isEditingCosts ? (
           <div className="p-4 vstack gap-3 bg-light bg-opacity-50">
-            <h6 className="fw-black x-small text-uppercase text-muted d-flex align-items-center gap-2 mb-0">
-              <Calculator size={14} /> 财务数据修正
+            <h6 className="fw-black x-small text-uppercase text-muted d-flex align-items-center justify-content-between mb-0">
+              <span className="d-flex align-items-center gap-2"><Calculator size={14} /> 财务数据修正</span>
+              <span className="text-success fw-black">实时预览</span>
             </h6>
             <div className="row g-2">
               <div className="col-12">
-                <label className="x-small fw-black text-muted mb-1">总场费 (RM)</label>
-                <input type="number" value={tempCourtFee} onChange={e => setTempCourtFee(parseFloat(e.target.value) || 0)} className="form-control form-control-sm fw-bold" />
+                <label className="x-small fw-black text-muted mb-1">纯场地费 (RM)</label>
+                <input type="number" value={tempCourtFee} onChange={e => setTempCourtFee(parseFloat(e.target.value) || 0)} className="form-control form-control-sm fw-bold border-success border-opacity-25" />
               </div>
               <div className="col-6">
                 <label className="x-small fw-black text-muted mb-1">羽球用量 (个)</label>
-                <input type="number" value={tempShuttleQty} onChange={e => setTempShuttleQty(parseInt(e.target.value) || 0)} className="form-control form-control-sm fw-bold" />
+                <input type="number" value={tempShuttleQty} onChange={e => setTempShuttleQty(parseInt(e.target.value) || 0)} className="form-control form-control-sm fw-bold border-success border-opacity-25" />
               </div>
               <div className="col-6">
                 <label className="x-small fw-black text-muted mb-1">羽球单价 (RM)</label>
-                <input type="number" step="0.1" value={tempShuttlePrice} onChange={e => setTempShuttlePrice(parseFloat(e.target.value) || 0)} className="form-control form-control-sm fw-bold" />
+                <input type="number" step="0.1" value={tempShuttlePrice} onChange={e => setTempShuttlePrice(parseFloat(e.target.value) || 0)} className="form-control form-control-sm fw-bold border-success border-opacity-25" />
               </div>
             </div>
+            
+            <div className="bg-success bg-opacity-10 p-2 rounded-3 border border-success border-opacity-10 d-flex justify-content-between align-items-center">
+              <div className="small fw-black text-success">预计总额: RM {previewTotal.toFixed(2)}</div>
+              <div className="small fw-black text-success">预计 AA: RM {previewAA.toFixed(2)}</div>
+            </div>
+
             <div className="d-flex gap-2">
-              <button onClick={handleUpdateCosts} className="btn btn-success btn-sm flex-grow-1 fw-black">更新开销</button>
+              <button onClick={handleUpdateCosts} className="btn btn-success btn-sm flex-grow-1 fw-black">保存所有开销</button>
               <button onClick={() => setIsEditingCosts(false)} className="btn btn-light btn-sm border">取消</button>
             </div>
           </div>
@@ -240,26 +250,25 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
           <div className="row g-0">
             <div className="col-6 p-4 border-end">
               <div className="d-flex justify-content-between align-items-center mb-1">
-                <small className="text-muted fw-black text-uppercase" style={{ fontSize: '0.65rem' }}>总场费支出</small>
+                <small className="text-muted fw-black text-uppercase" style={{ fontSize: '0.65rem' }}>活动总额 (场费+羽球)</small>
                 {isAdmin && !isCompleted && <Edit3 size={14} className="text-muted cursor-pointer" onClick={() => setIsEditingCosts(true)} />}
               </div>
-              <h4 className="fw-black mb-1">RM {session.courtFee.toFixed(2)}</h4>
-              <div className="d-flex align-items-center gap-1 text-muted fw-bold" style={{ fontSize: '0.65rem' }}>
-                <span>{session.courtCount} 场</span>
-                <span>×</span>
-                <span>{currentDuration.toFixed(1)}h</span>
+              <h4 className="fw-black mb-1">RM {totalEventCost.toFixed(2)}</h4>
+              <div className="d-flex flex-column gap-1 text-muted fw-bold" style={{ fontSize: '0.6rem' }}>
+                <span className="d-flex align-items-center gap-1"><MapPin size={8}/> 场费: RM {session.courtFee.toFixed(2)}</span>
+                <span className="d-flex align-items-center gap-1"><Package size={8}/> 羽球: RM {totalShuttleCost.toFixed(2)}</span>
               </div>
             </div>
             <div className={`col-6 p-4 ${isCompleted ? 'bg-secondary bg-opacity-10' : 'bg-success bg-opacity-5'}`}>
               <div className="d-flex justify-content-between align-items-center mb-1">
-                <small className="text-success fw-black text-uppercase" style={{ fontSize: '0.65rem' }}>人均费用 (AA)</small>
-                <span className={`badge rounded-pill fw-black px-2 ${isFull ? 'bg-danger bg-opacity-10 text-danger' : 'bg-white text-success border border-success border-opacity-25'}`} style={{ fontSize: '0.6rem' }}>
+                <small className="text-success fw-black text-uppercase" style={{ fontSize: '0.65rem' }}>每人均分 (AA)</small>
+                <span className={`badge rounded-pill fw-black px-2 ${isFull ? 'bg-danger bg-opacity-10 text-danger border-danger border-opacity-25' : 'bg-white text-success border border-success border-opacity-25'}`} style={{ fontSize: '0.6rem' }}>
                   {participantCount} / {maxParticipants} 人
                 </span>
               </div>
               <h4 className={`fw-black mb-1 ${isCompleted ? 'text-muted' : 'text-success'}`}>RM {costPerPerson.toFixed(2)}</h4>
               <div className="d-flex align-items-center gap-1 text-muted fw-bold" style={{ fontSize: '0.65rem' }}>
-                <Package size={10} />
+                <TrendingUp size={10} className="text-success" />
                 <span>羽球用量: {session.shuttleQty} 个</span>
               </div>
             </div>
@@ -267,15 +276,15 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
         )}
       </div>
 
-      {/* 名单区域 */}
+      {/* 名单部分 */}
       <div className="card-body p-4 d-flex flex-column gap-3">
         <h6 className="fw-black mb-0 d-flex align-items-center gap-2">
-          <Users size={18} className="text-success" /> 正式名单
+          <Users size={18} className="text-success" /> 确认出席名单
         </h6>
         
         <div className="vstack gap-2" style={{ maxHeight: '200px', overflowY: 'auto' }}>
           {session.participants.map(name => (
-            <div key={name} className="d-flex align-items-center justify-content-between p-2 px-3 border rounded-3 bg-white shadow-sm">
+            <div key={name} className="d-flex align-items-center justify-content-between p-2 px-3 border rounded-3 bg-white shadow-sm hover-border-success transition-all">
               <span className="fw-bold">{name}</span>
               {!isCompleted && (
                 <button onClick={() => handleRemoveClick(name)} className="btn btn-link p-1 text-muted border-0 hover-danger">
@@ -284,16 +293,18 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
               )}
             </div>
           ))}
-          {session.participants.length === 0 && <div className="text-center py-2 text-muted small fw-bold italic opacity-50">期待您的加入...</div>}
+          {session.participants.length === 0 && <div className="text-center py-3 text-muted small fw-bold italic opacity-50 bg-light rounded-3 border border-dashed">等待第一个勇士加入...</div>}
         </div>
 
         {session.waitingList && session.waitingList.length > 0 && (
           <div className="mt-2 pt-2 border-top">
-            <h6 className="fw-black text-warning small mb-2"><Timer size={14} className="me-1" /> 待定名单</h6>
+            <h6 className="fw-black text-warning small mb-2 d-flex align-items-center gap-2">
+              <Timer size={14} /> 候补排队中 ({session.waitingList.length})
+            </h6>
             <div className="vstack gap-1">
               {session.waitingList.map((name, i) => (
                 <div key={name} className="d-flex justify-content-between p-2 px-3 bg-warning bg-opacity-5 border border-warning border-opacity-10 rounded-3">
-                  <span className="small fw-bold">{i+1}. {name}</span>
+                  <span className="small fw-bold text-dark">{i+1}. {name}</span>
                   {!isCompleted && <X size={14} className="text-muted cursor-pointer" onClick={() => handleRemoveClick(name, true)} />}
                 </div>
               ))}
@@ -303,9 +314,9 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
 
         <div className="pt-2 border-top">
           {!isCompleted && (
-            <form onSubmit={(e) => { e.preventDefault(); handleAddName(newName); }} className="input-group shadow-sm">
-              <input type="text" placeholder={isFull ? "正赛已满，进入待定..." : "输入名字报名..."} value={newName} onChange={(e) => setNewName(e.target.value)} className="form-control border-0 bg-light fw-bold" />
-              <button type="submit" className={`btn ${isFull ? 'btn-warning' : 'btn-success'}`}>
+            <form onSubmit={(e) => { e.preventDefault(); handleAddName(newName); }} className="input-group shadow-sm border rounded-3 overflow-hidden">
+              <input type="text" placeholder={isFull ? "正赛已满，进入待定..." : "输入姓名加入战局..."} value={newName} onChange={(e) => setNewName(e.target.value)} className="form-control border-0 bg-light fw-bold px-3 py-2" />
+              <button type="submit" className={`btn border-0 rounded-0 px-3 ${isFull ? 'btn-warning' : 'btn-success'}`}>
                 {isFull ? <Timer size={18} /> : <UserPlus size={18} />}
               </button>
             </form>

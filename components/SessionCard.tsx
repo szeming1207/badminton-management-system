@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Users, MapPin, X, Trash2, UserPlus, Save, Edit3, Clock, ChevronDown, ChevronUp, CheckCircle2, AlertCircle, Edit2, Check, DollarSign, Calendar as CalendarIcon, UserX, UserCheck, ShieldAlert, Timer, CheckCircle, PackageCheck } from 'lucide-react';
+import { Users, MapPin, X, Trash2, UserPlus, Save, Edit3, Clock, CheckCircle2, Edit2, DollarSign, Timer, Calculator, Package } from 'lucide-react';
 import { Session, LocationConfig } from '../types';
 
 interface SessionCardProps {
@@ -17,36 +17,23 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
   const [isEditingCosts, setIsEditingCosts] = React.useState(false);
   const [isEditingDetails, setIsEditingDetails] = React.useState(false);
   
+  // 费用临时状态
   const [tempCourtFee, setTempCourtFee] = React.useState(session.courtFee);
   const [tempShuttleQty, setTempShuttleQty] = React.useState(session.shuttleQty);
   const [tempShuttlePrice, setTempShuttlePrice] = React.useState(session.shuttlePrice);
   
-  const isCompleted = session.status === 'completed';
-
-  React.useEffect(() => {
-    if (!isEditingCosts) {
-      setTempCourtFee(session.courtFee);
-      setTempShuttleQty(session.shuttleQty);
-      setTempShuttlePrice(session.shuttlePrice);
-    }
-  }, [session.courtFee, session.shuttleQty, session.shuttlePrice, isEditingCosts]);
-
+  // 详情临时状态
   const [editDate, setEditDate] = React.useState(session.date);
   const [editStartTime, setEditStartTime] = React.useState(session.time.split(' - ')[0] || '19:00');
   const [editEndTime, setEditEndTime] = React.useState(session.time.split(' - ')[1] || '21:00');
   const [editCourtCount, setEditCourtCount] = React.useState(session.courtCount);
   const [editMaxParticipants, setEditMaxParticipants] = React.useState(session.maxParticipants || 8);
 
-  const [showQuickAdd, setShowQuickAdd] = React.useState(false);
   const [showSuccessToast, setShowSuccessToast] = React.useState(false);
 
-  const totalShuttleCost = session.shuttleQty * session.shuttlePrice;
-  const totalCost = session.courtFee + totalShuttleCost;
-  const participantCount = session.participants.length;
-  const maxParticipants = session.maxParticipants || 8;
-  const isFull = participantCount >= maxParticipants;
-  const costPerPerson = participantCount > 0 ? totalCost / participantCount : totalCost;
+  const isCompleted = session.status === 'completed';
 
+  // 计算时长（小时）
   const calculateDuration = (start: string, end: string): number => {
     const [startH, startM] = start.split(':').map(Number);
     const [endH, endM] = end.split(':').map(Number);
@@ -54,36 +41,41 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
     return duration > 0 ? duration : 0;
   };
 
+  const currentDuration = calculateDuration(session.time.split(' - ')[0], session.time.split(' - ')[1]);
+  const totalShuttleCost = session.shuttleQty * session.shuttlePrice;
+  const totalCost = session.courtFee + totalShuttleCost;
+  const participantCount = session.participants.length;
+  const maxParticipants = session.maxParticipants || 8;
+  const isFull = participantCount >= maxParticipants;
+  const costPerPerson = participantCount > 0 ? totalCost / participantCount : totalCost;
+
+  // 更新费用逻辑
   const handleUpdateCosts = () => {
     onUpdate({ 
-      courtFee: tempCourtFee,
-      shuttleQty: tempShuttleQty,
-      shuttlePrice: tempShuttlePrice 
+      courtFee: Number(tempCourtFee),
+      shuttleQty: Number(tempShuttleQty),
+      shuttlePrice: Number(tempShuttlePrice) 
     });
     setIsEditingCosts(false);
   };
 
+  // 更新基本信息逻辑（包含联动计算场费）
   const handleUpdateDetails = () => {
     const duration = calculateDuration(editStartTime, editEndTime);
     const config = locations.find(l => l.name === session.location);
     let newCourtFee = session.courtFee;
 
     if (config) {
-      // 按照最新的小时单价 * 场数 * 时长重新计算
+      // 按照最新的 1小时单价 * 场数 * 时长 重新计算
       newCourtFee = Number(config.defaultCourtFee) * editCourtCount * duration;
-    } else {
-      // 如果没找到配置，尝试推算之前的单价
-      const oldDuration = calculateDuration(session.time.split(' - ')[0], session.time.split(' - ')[1]) || 1;
-      const oldRate = session.courtFee / (session.courtCount * oldDuration);
-      newCourtFee = oldRate * editCourtCount * duration;
     }
 
     onUpdate({ 
       date: editDate,
       time: `${editStartTime} - ${editEndTime}`,
-      courtCount: editCourtCount,
-      maxParticipants: editMaxParticipants,
-      courtFee: newCourtFee
+      courtCount: Number(editCourtCount),
+      maxParticipants: Number(editMaxParticipants),
+      courtFee: Number(newCourtFee)
     });
     setIsEditingDetails(false);
   };
@@ -91,9 +83,8 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
   const handleAddName = (name: string) => {
     const trimmed = name.trim();
     if (!trimmed || isCompleted) return;
-    
-    if (session.participants.includes(trimmed) || session.waitingList?.includes(trimmed)) {
-      alert('名字已在名单或等候名单中');
+    if (session.participants.includes(trimmed) || (session.waitingList || []).includes(trimmed)) {
+      alert('名字已在名单中');
       return;
     }
 
@@ -102,18 +93,16 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
     } else {
       const currentWaiting = session.waitingList || [];
       onUpdate({ waitingList: [...currentWaiting, trimmed] });
-      alert('正式名单已满，您已进入待定名单。若有人退出将自动顺延。');
     }
     
     setNewName('');
     setShowSuccessToast(true);
-    setTimeout(() => setShowSuccessToast(false), 2500);
+    setTimeout(() => setShowSuccessToast(false), 2000);
   };
 
   const handleRemoveClick = (name: string, isFromWaitingList: boolean = false) => {
     if (isCompleted) return;
-    const confirmMsg = isAdmin ? `确定直接移除 "${name}" 吗？` : `确定要申请退出吗？`;
-    if (!window.confirm(confirmMsg)) return;
+    if (!window.confirm(isAdmin ? `确定移除 "${name}" 吗？` : `确定申请退出吗？`)) return;
 
     if (isAdmin) {
       let updatedP = [...session.participants];
@@ -128,9 +117,10 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
           updatedW = rest;
         }
       }
-      onUpdate({ participants: updatedP, waitingList: updatedW, deletionRequests: (session.deletionRequests || []).filter(p => p !== name) });
+      onUpdate({ participants: updatedP, waitingList: updatedW });
     } else {
-      onUpdate({ deletionRequests: [...(session.deletionRequests || []), name] });
+      const currentReqs = session.deletionRequests || [];
+      onUpdate({ deletionRequests: [...currentReqs, name] });
     }
   };
 
@@ -145,10 +135,11 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
       {showSuccessToast && (
         <div className="position-absolute top-0 start-50 translate-middle-x mt-3 z-3 bg-success text-white px-4 py-2 rounded-pill shadow d-flex align-items-center gap-2">
           <CheckCircle2 size={18} />
-          <span className="small fw-black">报名成功！ 🎉</span>
+          <span className="small fw-black">报名成功！</span>
         </div>
       )}
 
+      {/* 头部信息展示/编辑 */}
       <div className={`card-header border-0 p-4 ${isCompleted ? 'bg-secondary bg-opacity-10' : 'bg-light'}`}>
         <div className="d-flex justify-content-between align-items-start">
           <div className="flex-grow-1">
@@ -156,7 +147,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
               <div className="vstack gap-3 mt-2 bg-white p-3 rounded-4 shadow-sm border border-success border-opacity-25">
                 <div className="row g-2">
                    <div className="col-12">
-                     <label className="x-small fw-black text-muted text-uppercase d-block mb-1">修改活动日期</label>
+                     <label className="x-small fw-black text-muted text-uppercase d-block mb-1">修改日期</label>
                      <input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} className="form-control form-control-sm fw-bold" />
                    </div>
                    <div className="col-8">
@@ -175,12 +166,11 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
                     <input type="number" min="1" value={editCourtCount} onChange={(e) => setEditCourtCount(parseInt(e.target.value) || 1)} className="form-control form-control-sm fw-black text-center" />
                   </div>
                   <div className="col-12">
-                    <label className="x-small fw-black text-muted text-uppercase d-block mb-1">最大人数限制 (当前已报 {participantCount} 人)</label>
+                    <label className="x-small fw-black text-muted text-uppercase d-block mb-1">最大人数 (当前 {participantCount})</label>
                     <input type="number" min="1" value={editMaxParticipants} onChange={(e) => setEditMaxParticipants(parseInt(e.target.value) || 1)} className="form-control form-control-sm fw-black" />
-                    <small className="text-muted" style={{ fontSize: '0.6rem' }}>* 增加场地数后建议同步增加人数限制</small>
                   </div>
                 </div>
-                <div className="d-flex gap-2">
+                <div className="d-flex gap-2 pt-1">
                   <button onClick={handleUpdateDetails} className="btn btn-success btn-sm flex-grow-1 fw-black shadow-sm">保存修改</button>
                   <button onClick={() => setIsEditingDetails(false)} className="btn btn-light btn-sm border">取消</button>
                 </div>
@@ -197,8 +187,8 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
                   <div className="d-flex align-items-center gap-1 small fw-bold text-muted bg-white px-2 py-1 rounded-pill border">
                     <MapPin size={12} className="text-danger" />
                     <span>{session.location}</span>
-                    <span className="opacity-25">|</span>
-                    <span>{session.courtCount} 场地</span>
+                    <span className="opacity-25 mx-1">|</span>
+                    <span className="text-dark">{session.courtCount} 场地</span>
                   </div>
                   {isAdmin && !isCompleted && (
                     <button onClick={() => setIsEditingDetails(true)} className="btn btn-link text-success p-1 rounded-circle hover-bg-light">
@@ -212,7 +202,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
           {isAdmin && (
             <div className="d-flex gap-1">
               {!isCompleted && (
-                <button onClick={() => { if(window.confirm('确认归档？')) onUpdate({ status: 'completed' }); }} className="btn btn-outline-success btn-sm rounded-pill fw-black px-3 py-1 shadow-sm">归档</button>
+                <button onClick={() => onUpdate({ status: 'completed' })} className="btn btn-outline-success btn-sm rounded-pill fw-black px-3 py-1">归档</button>
               )}
               <button onClick={onDelete} className="btn btn-link text-muted p-2"><Trash2 size={20} /></button>
             </div>
@@ -220,26 +210,64 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
         </div>
       </div>
 
-      <div className="row g-0 border-top border-bottom">
-        <div className="col-6 p-4 border-end">
-          <div className="d-flex justify-content-between align-items-center mb-1">
-            <small className="text-muted fw-black text-uppercase" style={{ fontSize: '0.65rem' }}>总场费支出</small>
-            {isAdmin && !isCompleted && <Edit3 size={14} className="text-muted cursor-pointer" onClick={() => setIsEditingCosts(!isEditingCosts)} />}
+      {/* 费用展示/编辑区域 */}
+      <div className="bg-white border-top border-bottom">
+        {isEditingCosts ? (
+          <div className="p-4 vstack gap-3 bg-light bg-opacity-50">
+            <h6 className="fw-black x-small text-uppercase text-muted d-flex align-items-center gap-2 mb-0">
+              <Calculator size={14} /> 财务数据修正
+            </h6>
+            <div className="row g-2">
+              <div className="col-12">
+                <label className="x-small fw-black text-muted mb-1">总场费 (RM)</label>
+                <input type="number" value={tempCourtFee} onChange={e => setTempCourtFee(parseFloat(e.target.value) || 0)} className="form-control form-control-sm fw-bold" />
+              </div>
+              <div className="col-6">
+                <label className="x-small fw-black text-muted mb-1">羽球用量 (个)</label>
+                <input type="number" value={tempShuttleQty} onChange={e => setTempShuttleQty(parseInt(e.target.value) || 0)} className="form-control form-control-sm fw-bold" />
+              </div>
+              <div className="col-6">
+                <label className="x-small fw-black text-muted mb-1">羽球单价 (RM)</label>
+                <input type="number" step="0.1" value={tempShuttlePrice} onChange={e => setTempShuttlePrice(parseFloat(e.target.value) || 0)} className="form-control form-control-sm fw-bold" />
+              </div>
+            </div>
+            <div className="d-flex gap-2">
+              <button onClick={handleUpdateCosts} className="btn btn-success btn-sm flex-grow-1 fw-black">更新开销</button>
+              <button onClick={() => setIsEditingCosts(false)} className="btn btn-light btn-sm border">取消</button>
+            </div>
           </div>
-          <h4 className="fw-black mb-1">RM {session.courtFee.toFixed(2)}</h4>
-          <small className="text-muted fw-bold" style={{ fontSize: '0.65rem' }}>
-            {session.courtCount} 场 × {calculateDuration(session.time.split(' - ')[0], session.time.split(' - ')[1]).toFixed(1)}h
-          </small>
-        </div>
-        <div className={`col-6 p-4 ${isCompleted ? 'bg-secondary bg-opacity-10' : 'bg-light bg-opacity-50'}`}>
-          <small className="text-success fw-black text-uppercase" style={{ fontSize: '0.65rem' }}>每人均分 (AA)</small>
-          <h4 className={`fw-black mb-1 ${isCompleted ? 'text-muted' : 'text-success'}`}>RM {costPerPerson.toFixed(2)}</h4>
-          <span className={`badge rounded-pill fw-black py-1 px-2 border ${isFull ? 'bg-danger bg-opacity-10 text-danger border-danger border-opacity-25' : 'bg-white text-success border-success border-opacity-25'}`}>
-            {participantCount} / {maxParticipants} 人
-          </span>
-        </div>
+        ) : (
+          <div className="row g-0">
+            <div className="col-6 p-4 border-end">
+              <div className="d-flex justify-content-between align-items-center mb-1">
+                <small className="text-muted fw-black text-uppercase" style={{ fontSize: '0.65rem' }}>总场费支出</small>
+                {isAdmin && !isCompleted && <Edit3 size={14} className="text-muted cursor-pointer" onClick={() => setIsEditingCosts(true)} />}
+              </div>
+              <h4 className="fw-black mb-1">RM {session.courtFee.toFixed(2)}</h4>
+              <div className="d-flex align-items-center gap-1 text-muted fw-bold" style={{ fontSize: '0.65rem' }}>
+                <span>{session.courtCount} 场</span>
+                <span>×</span>
+                <span>{currentDuration.toFixed(1)}h</span>
+              </div>
+            </div>
+            <div className={`col-6 p-4 ${isCompleted ? 'bg-secondary bg-opacity-10' : 'bg-success bg-opacity-5'}`}>
+              <div className="d-flex justify-content-between align-items-center mb-1">
+                <small className="text-success fw-black text-uppercase" style={{ fontSize: '0.65rem' }}>人均费用 (AA)</small>
+                <span className={`badge rounded-pill fw-black px-2 ${isFull ? 'bg-danger bg-opacity-10 text-danger' : 'bg-white text-success border border-success border-opacity-25'}`} style={{ fontSize: '0.6rem' }}>
+                  {participantCount} / {maxParticipants} 人
+                </span>
+              </div>
+              <h4 className={`fw-black mb-1 ${isCompleted ? 'text-muted' : 'text-success'}`}>RM {costPerPerson.toFixed(2)}</h4>
+              <div className="d-flex align-items-center gap-1 text-muted fw-bold" style={{ fontSize: '0.65rem' }}>
+                <Package size={10} />
+                <span>羽球用量: {session.shuttleQty} 个</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
+      {/* 名单区域 */}
       <div className="card-body p-4 d-flex flex-column gap-3">
         <h6 className="fw-black mb-0 d-flex align-items-center gap-2">
           <Users size={18} className="text-success" /> 正式名单
@@ -256,14 +284,15 @@ const SessionCard: React.FC<SessionCardProps> = ({ session, isAdmin, locations, 
               )}
             </div>
           ))}
+          {session.participants.length === 0 && <div className="text-center py-2 text-muted small fw-bold italic opacity-50">期待您的加入...</div>}
         </div>
 
         {session.waitingList && session.waitingList.length > 0 && (
           <div className="mt-2 pt-2 border-top">
-            <h6 className="fw-black text-warning small mb-2"><Timer size={14} className="me-1" /> 待定名单 (排队中)</h6>
+            <h6 className="fw-black text-warning small mb-2"><Timer size={14} className="me-1" /> 待定名单</h6>
             <div className="vstack gap-1">
               {session.waitingList.map((name, i) => (
-                <div key={name} className="d-flex justify-content-between p-2 px-3 bg-warning bg-opacity-10 border border-warning border-opacity-25 rounded-3">
+                <div key={name} className="d-flex justify-content-between p-2 px-3 bg-warning bg-opacity-5 border border-warning border-opacity-10 rounded-3">
                   <span className="small fw-bold">{i+1}. {name}</span>
                   {!isCompleted && <X size={14} className="text-muted cursor-pointer" onClick={() => handleRemoveClick(name, true)} />}
                 </div>
